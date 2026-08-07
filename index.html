@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#f57c00" />
+  <meta name="description" content="AYA GROUP – MULTY PAYMENT, aplikasi kasir dan retail multi-cabang." />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧾</text></svg>" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <title>AYA GROUP – MULTY PAYMENT</title>
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <aside id="sidebar" class="sidebar" aria-label="Navigasi utama">
+      <div class="brand">
+        <button id="sidebarToggle" class="icon-button" aria-label="Buka/tutup menu">☰</button>
+        <div class="brand-copy"><strong>AYA GROUP</strong><span>MULTY PAYMENT</span></div>
+      </div>
+      <nav id="mainNav" class="main-nav"></nav>
+      <div class="sidebar-footer">
+        <small id="connectionState">Memeriksa koneksi…</small>
+        <button id="logoutButton" class="ghost-button">Keluar</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div>
+          <h1 id="pageTitle">Dashboard Owner</h1>
+          <p id="pageSubtitle">Ringkasan usaha secara real-time</p>
+        </div>
+        <div class="topbar-actions">
+          <select id="branchSelector" aria-label="Pilih cabang"></select>
+          <span id="currentUserBadge" class="badge">Belum Login</span>
+          <button id="installButton" class="secondary-button" hidden>Pasang Aplikasi</button>
+        </div>
+      </header>
+      <section id="alertHost" class="alert-host" aria-live="polite"></section>
+      <section id="viewHost" class="view-host"></section>
+    </main>
+  </div>
+
+  <dialog id="appDialog" class="app-dialog">
+    <form method="dialog">
+      <header><h2 id="dialogTitle">Form</h2><button value="cancel" class="icon-button" aria-label="Tutup">✕</button></header>
+      <div id="dialogBody"></div>
+      <footer id="dialogFooter"></footer>
+    </form>
+  </dialog>
+
+  <template id="loadingTemplate"><div class="empty-state"><div class="spinner"></div><p>Memuat data…</p></div></template>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

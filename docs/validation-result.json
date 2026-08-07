@@ -1,0 +1,55 @@
+{
+  "file": "kasir-aya-group-e6fb4-default-rtdb-export(2).json",
+  "topLevelNodes": 18,
+  "canonicalBranches": [
+    {
+      "id": "aya-seblak-angkringan",
+      "name": "AYA SEBLAK DAN ANGKRINGAN",
+      "aliases": [
+        "CAB-02",
+        "aya-seblak-angkringan"
+      ]
+    },
+    {
+      "id": "aya-toko-sembako",
+      "name": "AYA TOKO Sembako",
+      "aliases": [
+        "aya-toko-sembako"
+      ]
+    },
+    {
+      "id": "dapur-aya",
+      "name": "DAPUR AYA",
+      "aliases": [
+        "dapur-aya"
+      ]
+    }
+  ],
+  "uniqueProducts": 132,
+  "rawTransactions": 576,
+  "normalizedSales": 553,
+  "capitalEntries": 25,
+  "operations": 196,
+  "customerDebts": 3,
+  "transactionsWithoutBranch": 541,
+  "sourceCounts": {
+    "barang_titipan": 5,
+    "cabang": 4,
+    "koreksi_stok": 1,
+    "master_barang": 3,
+    "master_menu": 86,
+    "master_pelanggan": 1,
+    "menu": 1,
+    "menu_tambahan": 85,
+    "modal_tambahan": 2,
+    "pelanggan": 1,
+    "pembayaran": 1,
+    "pengaturan": 3,
+    "pengeluaran": 196,
+    "stok_cabang": 1,
+    "supplier": 1,
+    "suppliers": 3,
+    "transaksi": 576,
+    "transfer": 1
+  }
+}

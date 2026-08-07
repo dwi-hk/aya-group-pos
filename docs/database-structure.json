@@ -1,0 +1,103 @@
+{
+  "ayaGroupV2": {
+    "branches": {
+      "branchId": {
+        "name": "",
+        "code": "",
+        "address": "",
+        "phone": ""
+      }
+    },
+    "products": {
+      "productId": {
+        "name": "",
+        "category": "",
+        "barcode": "",
+        "cost": 0,
+        "price": 0,
+        "wholesalePrice": 0,
+        "resellerPrice": 0,
+        "stock": 0,
+        "minStock": 0,
+        "unit": "pcs",
+        "ingredients": [],
+        "cartonCost": 0,
+        "packSize": 1,
+        "largeUnit": "karton"
+      }
+    },
+    "sales": {
+      "branchId": {
+        "saleId": {
+          "invoice": "",
+          "items": [],
+          "paymentMethod": "TUNAI",
+          "total": 0,
+          "status": "queued",
+          "createdAt": 0
+        }
+      }
+    },
+    "purchases": {
+      "branchId": {
+        "purchaseId": {
+          "invoice": "",
+          "supplierId": "",
+          "paymentMethod": "TUNAI|QRIS|HUTANG|PERSONAL",
+          "items": [
+            {
+              "productId": "",
+              "name": "",
+              "qtyLarge": 1,
+              "largeUnit": "karton",
+              "cartonCost": 0,
+              "packSize": 1,
+              "qtySmall": 1,
+              "unit": "pcs",
+              "cost": 0,
+              "price": 0,
+              "total": 0
+            }
+          ],
+          "total": 0,
+          "createdAt": 0
+        }
+      }
+    },
+    "operations": {
+      "branchId": {
+        "operationId": {
+          "date": "",
+          "name": "",
+          "qty": 0,
+          "price": 0,
+          "total": 0
+        }
+      }
+    },
+    "customers": {},
+    "suppliers": {},
+    "consignments": {},
+    "inventory": {
+      "branchId": {}
+    },
+    "employees": {},
+    "attendance": {
+      "branchId": {}
+    },
+    "debts": {},
+    "debtPayments": {
+      "debtId": {}
+    },
+    "stockTransfers": {},
+    "users": {
+      "firebaseUid": {
+        "name": "",
+        "email": "",
+        "role": "owner|supervisor|cashier",
+        "branchId": ""
+      }
+    },
+    "auditLogs": {}
+  }
+}

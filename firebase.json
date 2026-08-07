@@ -1,0 +1,11 @@
+{
+  "hosting": {
+    "public": ".",
+    "ignore": ["firebase.json", "database.rules.json", "README.md", "**/.*", "**/node_modules/**"],
+    "headers": [
+      {"source": "**", "headers": [{"key": "Permissions-Policy", "value": "bluetooth=(self), usb=(self), hid=(self), camera=(self)"}]}
+    ],
+    "rewrites": [{"source": "**", "destination": "/index.html"}]
+  },
+  "database": {"rules": "database.rules.json"}
+}

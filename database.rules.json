@@ -1,0 +1,126 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "ayaGroupV2": {
+      ".read": "auth != null",
+      "users": {
+        "$uid": {
+          ".read": "auth != null",
+          ".write": "auth != null && (auth.uid === $uid || root.child('ayaGroupV2/users').child(auth.uid).child('role').val() === 'owner')"
+        }
+      },
+      "products": {
+        ".indexOn": [
+          "name",
+          "barcode",
+          "category"
+        ],
+        "$id": {
+          ".write": "auth != null && (root.child('ayaGroupV2/users').child(auth.uid).child('role').val() === 'owner' || root.child('ayaGroupV2/users').child(auth.uid).child('role').val() === 'supervisor' || root.child('ayaGroupV2/users').child(auth.uid).child('role').val() === 'cashier')"
+        }
+      },
+      "stockByBranch": {
+        "$branch": {
+          "$product": {
+            ".write": "auth != null"
+          }
+        }
+      },
+      "sales": {
+        ".indexOn": [
+          "createdAt",
+          "branchId",
+          "cashierId"
+        ],
+        "$branch": {
+          "$sale": {
+            ".write": "auth != null"
+          }
+        }
+      },
+      "$other": {
+        ".write": "auth != null && (root.child('ayaGroupV2/users').child(auth.uid).child('role').val() === 'owner' || root.child('ayaGroupV2/users').child(auth.uid).child('role').val() === 'supervisor')"
+      },
+      "purchases": {
+        ".indexOn": [
+          "createdAt",
+          "branchId"
+        ],
+        "$branch": {
+          "$purchase": {
+            ".write": "auth != null && (root.child('ayaGroupV2/users').child(auth.uid).child('role').val() === 'owner' || root.child('ayaGroupV2/users').child(auth.uid).child('role').val() === 'supervisor' || root.child('ayaGroupV2/users').child(auth.uid).child('role').val() === 'cashier')"
+          }
+        }
+      }
+    },
+    "master_menu": {
+      ".read": "auth != null"
+    },
+    "menu_tambahan": {
+      ".read": "auth != null",
+      "$id": {
+        ".write": "auth != null"
+      }
+    },
+    "master_barang": {
+      ".read": "auth != null",
+      "$id": {
+        ".write": "auth != null"
+      }
+    },
+    "menu": {
+      ".read": "auth != null",
+      "$id": {
+        ".write": "auth != null"
+      }
+    },
+    "stok_cabang": {
+      ".read": "auth != null",
+      "$branch": {
+        "$id": {
+          ".write": "auth != null"
+        }
+      }
+    },
+    "transaksi": {
+      ".read": "auth != null",
+      "$id": {
+        ".write": "auth != null"
+      }
+    },
+    "pengeluaran": {
+      ".read": "auth != null"
+    },
+    "cabang": {
+      ".read": "auth != null"
+    },
+    "pelanggan": {
+      ".read": "auth != null"
+    },
+    "master_pelanggan": {
+      ".read": "auth != null"
+    },
+    "supplier": {
+      ".read": "auth != null"
+    },
+    "suppliers": {
+      ".read": "auth != null"
+    },
+    "barang_titipan": {
+      ".read": "auth != null"
+    },
+    "transfer": {
+      ".read": "auth != null"
+    },
+    "modal_tambahan": {
+      ".read": "auth != null"
+    },
+    "pembayaran": {
+      ".read": "auth != null"
+    },
+    "pengaturan": {
+      ".read": "auth != null"
+    }
+  }
+}
