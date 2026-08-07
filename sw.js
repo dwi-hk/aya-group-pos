@@ -1,4 +1,4 @@
-const CACHE = 'aya-pos-v2.6.0';
+const CACHE = 'aya-pos-v2.6.1';
 const ASSETS = [
   './',
   './index.html',
@@ -8,6 +8,7 @@ const ASSETS = [
   './css/fixes-v2.6.css',
   './js/app.js',
   './js/aya-v2.6-fixes.js',
+  './js/aya-v2.6.1-category-fix.js',
   './js/script.js',
   './js/firebase-config.js',
   './js/store.js',
@@ -43,13 +44,18 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key))))
+      .then(keys => Promise.all(
+        keys.filter(key => key !== CACHE).map(key => caches.delete(key))
+      ))
       .then(() => self.clients.claim())
   );
 });
 
 self.addEventListener('fetch', event => {
-  if (event.request.method !== 'GET' || !event.request.url.startsWith(self.location.origin)) return;
+  if (
+    event.request.method !== 'GET'
+    || !event.request.url.startsWith(self.location.origin)
+  ) return;
 
   event.respondWith(
     fetch(event.request)
@@ -58,6 +64,7 @@ self.addEventListener('fetch', event => {
         caches.open(CACHE).then(cache => cache.put(event.request, copy));
         return response;
       })
-      .catch(() => caches.match(event.request).then(response => response || caches.match('./index.html')))
+      .catch(() => caches.match(event.request)
+        .then(response => response || caches.match('./index.html')))
   );
 });
