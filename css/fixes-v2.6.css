@@ -1,0 +1,75 @@
+/* AYA GROUP POS v2.6 */
+.taxonomy-manager {
+  display: grid;
+  gap: 14px;
+}
+.taxonomy-add-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+.taxonomy-list {
+  display: grid;
+  gap: 8px;
+  max-height: 52vh;
+  overflow: auto;
+}
+.taxonomy-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #121419;
+}
+.taxonomy-row-actions {
+  display: flex;
+  gap: 6px;
+}
+.inventory-total-preview {
+  padding: 12px;
+  border: 1px dashed rgba(245,124,0,.55);
+  border-radius: 12px;
+  background: rgba(245,124,0,.08);
+}
+.inventory-total-preview strong {
+  color: var(--orange2);
+  font-size: 1.15rem;
+}
+.v26-toolbar-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.v26-table-actions {
+  display: flex;
+  gap: 5px;
+  white-space: nowrap;
+}
+.v26-help {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255,255,255,.035);
+}
+.row-filtered {
+  display: none !important;
+}
+.unit-datalist-note {
+  font-size: .76rem;
+  color: var(--muted);
+}
+@media(max-width:760px) {
+  .taxonomy-add-row {
+    grid-template-columns: 1fr;
+  }
+  .taxonomy-row {
+    grid-template-columns: 1fr;
+  }
+  .taxonomy-row-actions {
+    justify-content: flex-end;
+  }
+}
