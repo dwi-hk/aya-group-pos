@@ -1,0 +1,67 @@
+/* AYA GROUP POS v2.5 — perbaikan dialog dan fitur tambahan */
+.app-dialog > header,
+.app-dialog > footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 18px;
+}
+
+.app-dialog > header {
+  border-bottom: 1px solid var(--line);
+}
+
+.app-dialog > footer {
+  border-top: 1px solid var(--line);
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.app-dialog > header h2 {
+  margin: 0;
+}
+
+.app-dialog #dialogBody {
+  padding: 18px;
+  max-height: 72vh;
+  overflow: auto;
+}
+
+.report-extra-filter,
+.operation-period-filter {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.report-search-input {
+  min-width: 240px;
+}
+
+.category-toolbar-note {
+  color: var(--muted);
+  font-size: .78rem;
+  margin-left: 4px;
+}
+
+.reprint-button {
+  white-space: nowrap;
+}
+
+.row-filtered {
+  display: none !important;
+}
+
+@media (max-width: 760px) {
+  .report-search-input {
+    min-width: 0;
+  }
+
+  .app-dialog {
+    width: min(96vw, 760px);
+  }
+
+  .app-dialog #dialogBody {
+    max-height: 68vh;
+  }
+}
