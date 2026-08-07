@@ -1,12 +1,13 @@
-const CACHE = 'aya-pos-v2.5.0';
+const CACHE = 'aya-pos-v2.6.0';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './css/styles.css',
   './css/fixes-v2.5.css',
+  './css/fixes-v2.6.css',
   './js/app.js',
-  './js/aya-v2.5-fixes.js',
+  './js/aya-v2.6-fixes.js',
   './js/script.js',
   './js/firebase-config.js',
   './js/store.js',
