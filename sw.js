@@ -1,8 +1,11 @@
-const CACHE = 'aya-pos-v2.6.1';
+const CACHE = 'aya-pos-v2.6.2-android';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './icons/icon-maskable-512.png',
   './css/styles.css',
   './css/fixes-v2.5.css',
   './css/fixes-v2.6.css',
