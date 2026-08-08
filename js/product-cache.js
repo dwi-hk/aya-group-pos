@@ -4,18 +4,18 @@ import {
 } from './store.js';
 
 const CACHE_LIFETIME = 10 * 60 * 1000;
+const DAPUR_BRANCH_ID = 'dapur-aya-sembako';
+const SEBLAK_BRANCH_ID = 'aya-seblak-angkringan';
 
 let cachedProducts = null;
 let loadedAt = 0;
 let pendingRequest = null;
 
 export async function getCachedProducts({ force = false } = {}) {
-  const cacheIsFresh = (
-    Array.isArray(cachedProducts)
-    && Date.now() - loadedAt < CACHE_LIFETIME
-  );
+  const fresh = Array.isArray(cachedProducts)
+    && Date.now() - loadedAt < CACHE_LIFETIME;
 
-  if (!force && cacheIsFresh) return cachedProducts;
+  if (!force && fresh) return cachedProducts;
   if (!force && pendingRequest) return pendingRequest;
 
   if (force) {
@@ -37,48 +37,71 @@ export async function getCachedProducts({ force = false } = {}) {
   return pendingRequest;
 }
 
-export function invalidateProductCache({
-  includeStore = true
-} = {}) {
+export function invalidateProductCache({ includeStore = true } = {}) {
   cachedProducts = null;
   loadedAt = 0;
   pendingRequest = null;
 
-  if (includeStore) {
-    invalidateDataCache('products');
-  }
+  if (includeStore) invalidateDataCache('products');
+}
+
+function productBranchInfo(product) {
+  const branchIds = Array.isArray(product?.branchIds)
+    ? product.branchIds.map(String).filter(Boolean)
+    : [];
+
+  const stockByBranch = product?.stockByBranch
+    && typeof product.stockByBranch === 'object'
+      ? product.stockByBranch
+      : {};
+
+  const legacyOrigin = Boolean(
+    String(product?.source || '').startsWith('legacy:')
+    || product?._legacyPath
+    || product?._legacyStockPath
+    || Object.keys(product?._legacyBranchStockPaths || {}).length
+  );
+
+  return {
+    branchIds,
+    stockByBranch,
+    stockBranchIds: Object.keys(stockByBranch),
+    legacyOrigin
+  };
 }
 
 export function productBelongsToBranch(product, branchId) {
   if (!product || branchId === 'all') return true;
 
-  const branchIds = Array.isArray(product.branchIds)
-    ? product.branchIds.map(String)
-    : [];
-
-  const stockByBranch = (
-    product.stockByBranch
-    && typeof product.stockByBranch === 'object'
-  ) ? product.stockByBranch : {};
+  const {
+    branchIds,
+    stockByBranch,
+    stockBranchIds,
+    legacyOrigin
+  } = productBranchInfo(product);
 
   if (
     branchIds.includes(branchId)
-    || Object.prototype.hasOwnProperty.call(
-      stockByBranch,
-      branchId
-    )
-  ) {
-    return true;
+    || Object.prototype.hasOwnProperty.call(stockByBranch, branchId)
+  ) return true;
+
+  if (branchId === DAPUR_BRANCH_ID) return false;
+
+  if (branchId === SEBLAK_BRANCH_ID) {
+    const assignedToDapur = branchIds.includes(DAPUR_BRANCH_ID)
+      || Object.prototype.hasOwnProperty.call(
+        stockByBranch,
+        DAPUR_BRANCH_ID
+      );
+
+    if (assignedToDapur) return false;
+    if (branchIds.length > 0) return false;
+    if (legacyOrigin) return true;
+    if (stockBranchIds.length === 0) return true;
+    return false;
   }
 
-  const hasExplicitAssignment = (
-    branchIds.length > 0
-    || Object.keys(stockByBranch).length > 0
-  );
-
-  if (hasExplicitAssignment) return false;
-
-  return branchId === 'aya-seblak-angkringan';
+  return false;
 }
 
 window.addEventListener('aya-data-changed', event => {
