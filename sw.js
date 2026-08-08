@@ -1,4 +1,4 @@
-const CACHE = 'aya-pos-v2.9.0-fast-navigation';
+const CACHE = 'aya-pos-v2.9.1-menu-seblak-fix';
 
 const ASSETS = [
   './',
@@ -62,28 +62,21 @@ self.addEventListener('fetch', event => {
   if (
     event.request.method !== 'GET'
     || !event.request.url.startsWith(self.location.origin)
-  ) {
-    return;
-  }
+  ) return;
 
   event.respondWith(
     fetch(event.request)
       .then(response => {
         const copy = response.clone();
-
-        caches.open(CACHE)
-          .then(cache => cache.put(event.request, copy));
-
+        caches.open(CACHE).then(cache => cache.put(event.request, copy));
         return response;
       })
       .catch(async () => {
         const cached = await caches.match(event.request);
         if (cached) return cached;
-
         if (event.request.mode === 'navigate') {
           return caches.match('./index.html');
         }
-
         return Response.error();
       })
   );
