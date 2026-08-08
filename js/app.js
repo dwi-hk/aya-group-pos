@@ -1,12 +1,24 @@
-import { getBranches, getOnce, connectionInfo } from './store.js';
+import {
+  getBranches,
+  getOnce,
+  connectionInfo,
+  warmDataCache,
+  invalidateDataCache
+} from './store.js';
 import { auth } from './firebase-config.js';
-import { signOut } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js';
+import {
+  signOut
+} from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js';
 import { setupPWA } from './pwa.js';
 import { renderDashboard } from './dashboard.js';
 import { renderPOS } from './pos.js';
 import { renderMaster, renderDirectory } from './master.js';
 import { renderBranches, renderTransfers } from './branch.js';
-import { renderPurchases, renderOperations, renderDebts } from './transaction.js';
+import {
+  renderPurchases,
+  renderOperations,
+  renderDebts
+} from './transaction.js';
 import {
   renderEmployees,
   renderAttendance,
@@ -25,8 +37,10 @@ const branchSelector = document.querySelector('#branchSelector');
 const sidebar = document.querySelector('#sidebar');
 
 let branches = [];
-let currentRoute = 'dashboard';
+let currentRoute = 'users';
 let navigationSequence = 0;
+let warmupHandle = null;
+
 let user = {
   uid: 'guest',
   name: 'Belum Login',
@@ -210,6 +224,7 @@ function notify(message, type = 'success') {
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
   toast.textContent = message;
+
   document.querySelector('#alertHost').append(toast);
   setTimeout(() => toast.remove(), 4200);
 }
@@ -227,9 +242,15 @@ function dialog(title, body, footer = '') {
 
 function setUser(next) {
   user = next;
-  document.body.classList.toggle('auth-locked', user.role === 'guest');
+
+  document.body.classList.toggle(
+    'auth-locked',
+    user.role === 'guest'
+  );
+
   document.querySelector('#currentUserBadge').textContent =
     `${user.name} · ${user.role}`;
+
   buildNav();
 }
 
@@ -269,11 +290,22 @@ function context(viewHost = rootHost) {
     dialog,
     setUser,
     navigate,
-    refreshBranches: loadBranches
+    refreshBranches: loadBranches,
+    refreshData: paths => {
+      invalidateDataCache(paths || 'all');
+      return navigate(currentRoute, { force: true });
+    }
   };
 }
 
 function firstAllowedRoute() {
+  if (
+    user.role !== 'guest'
+    && routes.pos.roles.includes(user.role)
+  ) {
+    return 'pos';
+  }
+
   return (
     Object.entries(routes)
       .find(([, route]) => route.roles.includes(user.role))?.[0]
@@ -330,10 +362,8 @@ function clearViewHandlers() {
 
 function updateRouteHash(route) {
   const nextHash = `#${route}`;
-
   if (location.hash === nextHash) return;
 
-  // Tidak memicu hashchange. Ini mencegah render satu rute berjalan dua kali.
   history.replaceState(
     null,
     '',
@@ -341,22 +371,44 @@ function updateRouteHash(route) {
   );
 }
 
+function currentViewMatches(route) {
+  const mount = rootHost.firstElementChild;
+
+  return (
+    mount?.dataset?.route === route
+    && mount?.dataset?.branch === currentBranch().id
+    && mount?.dataset?.user === user.uid
+  );
+}
+
 async function navigate(requestedRoute, options = {}) {
   const {
-    updateHash = true
+    updateHash = true,
+    force = false
   } = options;
 
   clearViewHandlers();
 
-  let route = resolveRoute(requestedRoute);
+  const route = resolveRoute(requestedRoute);
 
   if (route === 'pos' && currentBranch().id === 'all') {
-    const firstBranch = branches.find(branch => branch.active !== false);
+    const firstBranch = branches.find(
+      branch => branch.active !== false
+    );
 
     if (firstBranch) {
       branchSelector.value = firstBranch.id;
       localStorage.setItem('aya.branch', firstBranch.id);
     }
+  }
+
+  if (
+    !force
+    && route === currentRoute
+    && currentViewMatches(route)
+  ) {
+    if (updateHash) updateRouteHash(route);
+    return;
   }
 
   currentRoute = route;
@@ -366,21 +418,38 @@ async function navigate(requestedRoute, options = {}) {
   const routeConfig = routes[route];
   const navigationId = ++navigationSequence;
 
-  document.querySelector('#pageTitle').textContent = routeConfig.title;
-  document.querySelector('#pageSubtitle').textContent = routeConfig.subtitle;
+  document.querySelector('#pageTitle').textContent =
+    routeConfig.title;
+
+  document.querySelector('#pageSubtitle').textContent =
+    routeConfig.subtitle;
+
   buildNav();
 
-  /*
-   * Setiap navigasi mempunyai wadah sendiri.
-   * Render lama yang selesai belakangan hanya dapat menulis ke wadah lama
-   * yang sudah dilepas, sehingga tidak bisa menimpa halaman terbaru.
-   */
   const viewMount = document.createElement('div');
+
   viewMount.className = 'route-view';
   viewMount.dataset.navigationId = String(navigationId);
-  viewMount.innerHTML = document.querySelector('#loadingTemplate').innerHTML;
+  viewMount.dataset.route = route;
+  viewMount.dataset.branch = currentBranch().id;
+  viewMount.dataset.user = user.uid;
 
   rootHost.replaceChildren(viewMount);
+
+  /*
+   * Spinner baru muncul bila proses benar-benar lebih dari 140 ms.
+   * Tab yang memakai cache tidak lagi berkedip "Memuat data…".
+   */
+  const loadingTimer = setTimeout(() => {
+    if (
+      navigationId === navigationSequence
+      && viewMount.isConnected
+      && !viewMount.childElementCount
+    ) {
+      viewMount.innerHTML =
+        document.querySelector('#loadingTemplate').innerHTML;
+    }
+  }, 140);
 
   try {
     await routeConfig.render(context(viewMount));
@@ -403,8 +472,13 @@ async function navigate(requestedRoute, options = {}) {
           </p>
         </div>`;
 
-      notify(error.message || 'Terjadi kesalahan', 'error');
+      notify(
+        error.message || 'Terjadi kesalahan',
+        'error'
+      );
     }
+  } finally {
+    clearTimeout(loadingTimer);
   }
 
   if (
@@ -415,8 +489,8 @@ async function navigate(requestedRoute, options = {}) {
   }
 }
 
-async function loadBranches() {
-  branches = await getBranches();
+async function loadBranches({ force = false } = {}) {
+  branches = await getBranches({ force });
 
   const saved = localStorage.getItem('aya.branch');
 
@@ -427,7 +501,9 @@ async function loadBranches() {
     ${branches
       .filter(branch => branch.active !== false)
       .map(branch => `
-        <option value="${branch.id}">${branch.name}</option>`)
+        <option value="${branch.id}">
+          ${branch.name}
+        </option>`)
       .join('')}
   `;
 
@@ -436,12 +512,50 @@ async function loadBranches() {
       ? saved
       : branches[0]?.id || 'all';
 
-  localStorage.setItem('aya.branch', branchSelector.value);
+  localStorage.setItem(
+    'aya.branch',
+    branchSelector.value
+  );
+}
+
+function scheduleWarmup() {
+  if (warmupHandle) {
+    if ('cancelIdleCallback' in window) {
+      cancelIdleCallback(warmupHandle);
+    } else {
+      clearTimeout(warmupHandle);
+    }
+  }
+
+  const run = () => {
+    warmupHandle = null;
+
+    warmDataCache([
+      'sales',
+      'operations',
+      'debts',
+      'purchases',
+      'capital'
+    ]).catch(error => {
+      console.warn('Background cache:', error.message);
+    });
+  };
+
+  if ('requestIdleCallback' in window) {
+    warmupHandle = requestIdleCallback(run, {
+      timeout: 5000
+    });
+  } else {
+    warmupHandle = setTimeout(run, 2200);
+  }
 }
 
 function updateConnection(detail = connectionInfo()) {
   const state = document.querySelector('#connectionState');
-  const queued = detail.queued ?? connectionInfo().queued;
+  const queued = (
+    detail.queued
+    ?? connectionInfo().queued
+  );
 
   state.textContent = detail.connected
     ? `Online${queued ? ` · ${queued} antrean` : ''}`
@@ -461,8 +575,14 @@ nav.addEventListener('click', event => {
 });
 
 branchSelector.addEventListener('change', () => {
-  localStorage.setItem('aya.branch', branchSelector.value);
-  navigate(currentRoute);
+  localStorage.setItem(
+    'aya.branch',
+    branchSelector.value
+  );
+
+  navigate(currentRoute, {
+    force: true
+  });
 });
 
 document.querySelector('#sidebarToggle').onclick = () => (
@@ -473,13 +593,19 @@ document.querySelector('#sidebarToggle').onclick = () => (
 
 document.querySelector('#logoutButton').onclick = async () => {
   await signOut(auth);
+  invalidateDataCache('all');
+
   setUser({
     uid: 'guest',
     name: 'Belum Login',
     role: 'guest'
   });
+
   notify('Anda sudah keluar');
-  navigate('users');
+
+  navigate('users', {
+    force: true
+  });
 };
 
 window.addEventListener('aya-connection', event => {
@@ -494,8 +620,11 @@ window.addEventListener('aya-queue', event => {
 });
 
 window.addEventListener('aya-branches-changed', async () => {
-  await loadBranches();
-  navigate(currentRoute);
+  await loadBranches({ force: true });
+
+  navigate(currentRoute, {
+    force: true
+  });
 });
 
 window.addEventListener('aya-auth', async event => {
@@ -506,11 +635,18 @@ window.addEventListener('aya-auth', async event => {
       role: 'guest'
     });
 
-    if (currentRoute !== 'users') navigate('users');
+    if (currentRoute !== 'users') {
+      navigate('users', {
+        force: true
+      });
+    }
+
     return;
   }
 
-  const profile = await getOnce(`users/${event.detail.uid}`);
+  const profile = await getOnce(
+    `users/${event.detail.uid}`
+  );
 
   setUser({
     uid: event.detail.uid,
@@ -522,14 +658,16 @@ window.addEventListener('aya-auth', async event => {
 
   await loadBranches();
 
-  if (currentRoute === 'users') {
-    const preferredRoute = (
-      profile?.role === 'owner'
-      || profile?.role === 'supervisor'
-    ) ? 'dashboard' : 'pos';
+  /*
+   * Semua akun langsung ke Kasir.
+   * Dashboard tidak dimuat dulu, sehingga login tidak menjalankan
+   * dua halaman berat secara berurutan.
+   */
+  await navigate('pos', {
+    force: true
+  });
 
-    navigate(preferredRoute);
-  }
+  scheduleWarmup();
 });
 
 window.addEventListener('hashchange', () => {
@@ -539,11 +677,18 @@ window.addEventListener('hashchange', () => {
     requested
     && requested !== currentRoute
   ) {
-    navigate(requested, { updateHash: false });
+    navigate(requested, {
+      updateHash: false
+    });
   }
 });
 
-setupPWA(document.querySelector('#installButton'));
+setupPWA(
+  document.querySelector('#installButton')
+);
+
 buildNav();
 updateConnection();
-navigate('users');
+navigate('users', {
+  force: true
+});
