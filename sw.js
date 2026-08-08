@@ -1,4 +1,4 @@
-const CACHE = 'aya-pos-v2.6.2-android';
+const CACHE = 'aya-pos-v2.7.0-mode-ringan';
 const ASSETS = [
   './',
   './index.html',
@@ -15,6 +15,7 @@ const ASSETS = [
   './js/script.js',
   './js/firebase-config.js',
   './js/store.js',
+  './js/product-cache.js',
   './js/legacy-adapter.js',
   './js/utils.js',
   './js/menu-data.js',
