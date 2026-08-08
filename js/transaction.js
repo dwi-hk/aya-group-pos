@@ -1,4 +1,19 @@
-import { getProducts, getOnce, pushData, atomicStock, updateData, updateProductPurchaseInfo, stockForBranch } from './store.js';
+import {
+  getProducts,
+  getOnce,
+  pushData,
+  atomicStock,
+  updateData,
+  updateProductPurchaseInfo,
+  stockForBranch,
+  removeData,
+  invalidateDataCache
+} from './store.js';
+import { db } from './firebase-config.js';
+import {
+  ref,
+  remove
+} from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js';
 import { rupiah, escapeHTML, number, formObject, toArray, dateTime, sum } from './utils.js';
 import { audit } from './audit.js';
 
@@ -187,21 +202,186 @@ export async function renderPurchases(ctx) {
 
 export async function renderOperations(ctx) {
   if (!requireBranch(ctx)) return;
-  let rows = toArray(await getOnce(`operations/${ctx.branch.id}`)).sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+
+  let rows = toArray(
+    await getOnce(`operations/${ctx.branch.id}`)
+  ).sort((a, b) =>
+    String(b.date || '').localeCompare(String(a.date || ''))
+    || number(b.createdAt) - number(a.createdAt)
+  );
+
+  const deleteOperation = async row => {
+    const name = row.name || 'Pengeluaran';
+    const date = row.date || '-';
+    const total = number(row.total);
+
+    const approved = confirm(
+      `Hapus pengeluaran operasional ini secara permanen?\n\n`
+      + `Tanggal: ${date}\n`
+      + `Pengeluaran: ${name}\n`
+      + `Nominal: ${rupiah(total)}\n\n`
+      + `Tindakan ini tidak dapat dibatalkan.`
+    );
+
+    if (!approved) return;
+
+    const button = ctx.host.querySelector(
+      `[data-operation-delete="${CSS.escape(String(row.id))}"]`
+    );
+
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'Menghapus…';
+    }
+
+    try {
+      const isLegacy = String(row.source || '')
+        .startsWith('legacy:pengeluaran');
+
+      if (isLegacy) {
+        /*
+         * Data operasional lama berada di root /pengeluaran,
+         * bukan di /ayaGroupV2/operations.
+         */
+        await remove(
+          ref(db, `pengeluaran/${row.id}`)
+        );
+
+        invalidateDataCache('operations');
+      } else {
+        await removeData(
+          `operations/${ctx.branch.id}/${row.id}`
+        );
+      }
+
+      await audit('DELETE', 'OPERATION', {
+        id: row.id,
+        name,
+        date,
+        total,
+        paymentMethod: row.paymentMethod || row.method || 'TUNAI',
+        source: row.source || 'ayaGroupV2',
+        branchId: ctx.branch.id,
+        deletedBy: ctx.user.name
+      });
+
+      rows = rows.filter(item => !(
+        String(item.id) === String(row.id)
+        && String(item.source || 'ayaGroupV2')
+          === String(row.source || 'ayaGroupV2')
+      ));
+
+      ctx.notify('Pengeluaran operasional berhasil dihapus');
+      draw();
+    } catch (error) {
+      console.error('Gagal menghapus operasional:', error);
+
+      ctx.notify(
+        error.message
+          || 'Pengeluaran gagal dihapus. Periksa koneksi dan izin Firebase.',
+        'error'
+      );
+
+      if (button) {
+        button.disabled = false;
+        button.textContent = 'Hapus';
+      }
+    }
+  };
+
   const draw = () => {
     ctx.host.innerHTML = `
       <article class="card">
-        <div class="toolbar"><div><h2>Operasional Cabang</h2><p class="muted">Catat metode pembayaran agar laporan kas tunai tidak tercampur dengan QRIS, hutang, atau personal.</p></div><button id="addOperation" class="primary-button">+ Pengeluaran</button></div>
-        <div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Nama Pengeluaran</th><th>Satuan</th><th>Qty</th><th>Harga</th><th>Metode</th><th>Total</th><th>Keterangan</th></tr></thead><tbody>
-          ${rows.map(row => `<tr><td>${escapeHTML(row.date)}</td><td>${escapeHTML(row.name)}</td><td>${escapeHTML(row.unit)}</td><td>${row.qty}</td><td>${rupiah(row.price)}</td><td>${escapeHTML(row.paymentMethod || row.method || 'TUNAI')}</td><td>${rupiah(row.total)}</td><td>${escapeHTML(row.notes || '-')}</td></tr>`).join('') || '<tr><td colspan="8">Belum ada pengeluaran.</td></tr>'}
-        </tbody></table></div>
+        <div class="toolbar">
+          <div>
+            <h2>Operasional Cabang</h2>
+            <p class="muted">
+              Catat metode pembayaran agar laporan kas tunai tidak tercampur
+              dengan QRIS, hutang, atau personal.
+            </p>
+          </div>
+          <button id="addOperation" class="primary-button">
+            + Pengeluaran
+          </button>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Tanggal</th>
+                <th>Nama Pengeluaran</th>
+                <th>Satuan</th>
+                <th>Qty</th>
+                <th>Harga</th>
+                <th>Metode</th>
+                <th>Total</th>
+                <th>Keterangan</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map(row => `
+                <tr>
+                  <td>${escapeHTML(row.date)}</td>
+                  <td>${escapeHTML(row.name)}</td>
+                  <td>${escapeHTML(row.unit)}</td>
+                  <td>${row.qty}</td>
+                  <td>${rupiah(row.price)}</td>
+                  <td>${escapeHTML(row.paymentMethod || row.method || 'TUNAI')}</td>
+                  <td>${rupiah(row.total)}</td>
+                  <td>${escapeHTML(row.notes || '-')}</td>
+                  <td>
+                    <button
+                      type="button"
+                      class="danger-button"
+                      data-operation-delete="${escapeHTML(row.id)}"
+                      title="Hapus pengeluaran operasional"
+                    >
+                      Hapus
+                    </button>
+                  </td>
+                </tr>
+              `).join('')
+              || '<tr><td colspan="9">Belum ada pengeluaran.</td></tr>'}
+            </tbody>
+          </table>
+        </div>
       </article>`;
-    document.querySelector('#addOperation').onclick = () => operationForm(ctx, async item => {
-      const result = await pushData(`operations/${ctx.branch.id}`, item);
-      rows.unshift({ ...item, id: result.key });
-      draw();
-    });
+
+    ctx.host.querySelector('#addOperation').onclick = () =>
+      operationForm(ctx, async item => {
+        const result = await pushData(
+          `operations/${ctx.branch.id}`,
+          item
+        );
+
+        rows.unshift({
+          ...item,
+          id: result.key,
+          source: 'ayaGroupV2'
+        });
+
+        draw();
+      });
+
+    ctx.host.querySelector('tbody').onclick = event => {
+      const button = event.target.closest(
+        '[data-operation-delete]'
+      );
+
+      if (!button) return;
+
+      const row = rows.find(item =>
+        String(item.id) === String(
+          button.dataset.operationDelete
+        )
+      );
+
+      if (row) deleteOperation(row);
+    };
   };
+
   draw();
 }
 
