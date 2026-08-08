@@ -1,4 +1,4 @@
-const CACHE = 'aya-pos-v2.9.1-menu-seblak-fix';
+const CACHE = 'aya-pos-v2.10.1-laporan-penjualan';
 
 const ASSETS = [
   './',
@@ -10,6 +10,7 @@ const ASSETS = [
   './css/styles.css',
   './css/fixes-v2.5.css',
   './css/fixes-v2.6.css',
+  './css/reports-v2.10.1.css',
   './js/app.js',
   './js/aya-v2.6-fixes.js',
   './js/aya-v2.6.1-category-fix.js',
@@ -74,9 +75,11 @@ self.addEventListener('fetch', event => {
       .catch(async () => {
         const cached = await caches.match(event.request);
         if (cached) return cached;
+
         if (event.request.mode === 'navigate') {
           return caches.match('./index.html');
         }
+
         return Response.error();
       })
   );
