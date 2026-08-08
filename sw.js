@@ -1,4 +1,5 @@
-const CACHE = 'aya-pos-v2.7.2-default-kasir';
+const CACHE = 'aya-pos-v2.9.0-fast-navigation';
+
 const ASSETS = [
   './',
   './index.html',
@@ -10,7 +11,6 @@ const ASSETS = [
   './css/fixes-v2.5.css',
   './css/fixes-v2.6.css',
   './js/app.js',
-  './js/default-pos.js',
   './js/aya-v2.6-fixes.js',
   './js/aya-v2.6.1-category-fix.js',
   './js/script.js',
@@ -62,13 +62,18 @@ self.addEventListener('fetch', event => {
   if (
     event.request.method !== 'GET'
     || !event.request.url.startsWith(self.location.origin)
-  ) return;
+  ) {
+    return;
+  }
 
   event.respondWith(
     fetch(event.request)
       .then(response => {
         const copy = response.clone();
-        caches.open(CACHE).then(cache => cache.put(event.request, copy));
+
+        caches.open(CACHE)
+          .then(cache => cache.put(event.request, copy));
+
         return response;
       })
       .catch(async () => {
