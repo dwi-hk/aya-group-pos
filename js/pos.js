@@ -7,9 +7,38 @@ import { startScanner, stopScanner, scannerSupported } from './scanner.js';
 let cart=[],held=JSON.parse(localStorage.getItem('aya.held')||'[]'),products=[];
 const saveHeld=()=>localStorage.setItem('aya.held',JSON.stringify(held));
 function effectivePrice(p,level){return number(level==='grosir'?p.wholesalePrice:level==='reseller'?p.resellerPrice:p.price)}
+
+const DAPUR_AYA_BRANCH_ID='dapur-aya-sembako';
+const SEBLAK_BRANCH_ID='aya-seblak-angkringan';
+
+function productBelongsToBranch(product,branchId){
+  if(!product||branchId==='all')return true;
+
+  const branchIds=Array.isArray(product.branchIds)
+    ? product.branchIds.map(String)
+    : [];
+  const stockByBranch=product.stockByBranch&&typeof product.stockByBranch==='object'
+    ? product.stockByBranch
+    : {};
+  const hasBranchStock=Object.prototype.hasOwnProperty.call(stockByBranch,branchId);
+
+  // Produk yang memiliki penanda cabang atau stok cabang hanya tampil
+  // pada cabang yang memang ditentukan.
+  if(branchIds.includes(branchId)||hasBranchStock)return true;
+
+  const hasExplicitAssignment=branchIds.length>0||Object.keys(stockByBranch).length>0;
+  if(hasExplicitAssignment)return false;
+
+  // Kompatibilitas data menu lama: produk lama yang belum memiliki
+  // penanda cabang dianggap sebagai menu AYA Seblak, bukan DAPUR AYA.
+  return branchId===SEBLAK_BRANCH_ID;
+}
+
 export async function renderPOS(ctx){
   products=await getProducts();cart=[];
-  const available=products.filter(p=>p.active!==false&&(!p.branchIds?.length||p.branchIds.includes(ctx.branch.id))).map(p=>({...p,stock:stockForBranch(p,ctx.branch.id)}));
+  const available=products
+    .filter(p=>p.active!==false&&productBelongsToBranch(p,ctx.branch.id))
+    .map(p=>({...p,stock:stockForBranch(p,ctx.branch.id)}));
   const categories=['Semua',...new Set(available.map(p=>p.category))];
   ctx.host.innerHTML=`<div class="product-layout">
     <section class="card"><div class="toolbar"><div class="toolbar-group"><input id="productSearch" placeholder="Cari nama / barcode…" style="min-width:230px"><select id="categoryFilter">${categories.map(c=>`<option>${escapeHTML(c)}</option>`).join('')}</select><select id="priceLevel"><option value="ecer">Harga Ecer</option><option value="grosir">Harga Grosir</option><option value="reseller">Harga Reseller</option></select></div><div class="toolbar-group"><button id="scanButton" class="secondary-button">📷 Scan</button><button id="heldButton" class="secondary-button">Tertahan (${held.length})</button></div></div><div id="productGrid" class="product-grid"></div></section>
@@ -17,7 +46,7 @@ export async function renderPOS(ctx){
       <div class="form-grid" style="margin-top:12px"><label>Jenis Pesanan<select id="orderType"><option>Makan di tempat</option><option>Dibungkus</option><option>Delivery</option></select></label><label>Metode Pembayaran<select id="paymentMethod"><option>TUNAI</option><option>QRIS</option><option>HUTANG</option><option>PERSONAL</option></select></label><label>Nama Pelanggan<input id="customerName" placeholder="Opsional"></label><label>Ongkos Kirim<input id="shipping" inputmode="numeric" value="0"></label><label>Jumlah Styrofoam<input id="styrofoamQty" type="number" min="0" value="0"></label><label>Diskon<input id="discount" inputmode="numeric" value="0"></label><label class="full">Uang Dibayar<input id="paid" inputmode="numeric" value="0"></label></div>
       <div id="cartSummary" style="margin-top:12px"></div><div class="toolbar" style="margin-top:14px"><button id="holdButton" class="secondary-button">Tahan</button><button id="saveSale" class="primary-button">Simpan & Cetak</button></div>
     </aside></div>`;
-  const renderProducts=()=>{const q=document.querySelector('#productSearch').value.toLowerCase(),cat=document.querySelector('#categoryFilter').value,level=document.querySelector('#priceLevel').value;document.querySelector('#productGrid').innerHTML=available.filter(p=>(cat==='Semua'||p.category===cat)&&(`${p.name} ${p.barcode}`.toLowerCase().includes(q))).map(p=>`<button class="product-button" data-product="${escapeHTML(p.id)}"><strong>${escapeHTML(p.name)}</strong><small class="muted">${escapeHTML(p.category)} · Stok ${p.stock}</small><span>${rupiah(effectivePrice(p,level))}</span></button>`).join('')||'<div class="empty-state">Produk tidak ditemukan.</div>'};
+  const renderProducts=()=>{const q=document.querySelector('#productSearch').value.toLowerCase(),cat=document.querySelector('#categoryFilter').value,level=document.querySelector('#priceLevel').value;document.querySelector('#productGrid').innerHTML=available.filter(p=>(cat==='Semua'||p.category===cat)&&(`${p.name} ${p.barcode}`.toLowerCase().includes(q))).map(p=>`<button class="product-button" data-product="${escapeHTML(p.id)}"><strong>${escapeHTML(p.name)}</strong><small class="muted">${escapeHTML(p.category)} · Stok ${p.stock}</small><span>${rupiah(effectivePrice(p,level))}</span></button>`).join('')||`<div class="empty-state">Tidak ada barang untuk cabang ${escapeHTML(ctx.branch.name)}.</div>`};
   const renderCart=()=>{document.querySelector('#cartList').innerHTML=cart.map(i=>`<div class="cart-row"><div><strong>${escapeHTML(i.name)}</strong><small class="muted">${rupiah(i.price)} / ${escapeHTML(i.unit)}</small></div><div class="qty-controls"><button class="secondary-button" data-minus="${i.id}">−</button><b>${i.qty}</b><button class="secondary-button" data-plus="${i.id}">+</button></div></div>`).join('')||'<div class="empty-state">Belum ada item.</div>';renderSummary()};
   const totals=()=>{const subtotal=sum(cart,i=>i.qty*i.price),shipping=number(document.querySelector('#shipping').value),styrofoamQty=number(document.querySelector('#styrofoamQty').value),discount=number(document.querySelector('#discount').value);return{subtotal,shipping,styrofoamQty,styrofoamTotal:styrofoamQty*1000,discount,total:Math.max(0,subtotal+shipping+styrofoamQty*1000-discount)}};
   const renderSummary=()=>{const t=totals(),paid=number(document.querySelector('#paid').value);document.querySelector('#cartSummary').innerHTML=`<div class="summary-row"><span>Subtotal</span><b>${rupiah(t.subtotal)}</b></div><div class="summary-row"><span>Ongkir</span><b>${rupiah(t.shipping)}</b></div><div class="summary-row"><span>Styrofoam</span><b>${rupiah(t.styrofoamTotal)}</b></div><div class="summary-row"><span>Diskon</span><b>-${rupiah(t.discount)}</b></div><div class="summary-row total"><span>Total</span><b>${rupiah(t.total)}</b></div><div class="summary-row"><span>Kembali</span><b>${rupiah(Math.max(0,paid-t.total))}</b></div>`};
