@@ -1,67 +1,479 @@
-import { getProducts, pushData, atomicStock, mirrorLegacySale, stockForBranch } from './store.js';
+import { pushData, atomicStock, mirrorLegacySale, stockForBranch } from './store.js';
+import { getCachedProducts, productBelongsToBranch } from './product-cache.js';
 import { rupiah, number, escapeHTML, uid, sum } from './utils.js';
 import { printReceipt } from './print.js';
 import { audit } from './audit.js';
 import { startScanner, stopScanner, scannerSupported } from './scanner.js';
 
-let cart=[],held=JSON.parse(localStorage.getItem('aya.held')||'[]'),products=[];
-const saveHeld=()=>localStorage.setItem('aya.held',JSON.stringify(held));
-function effectivePrice(p,level){return number(level==='grosir'?p.wholesalePrice:level==='reseller'?p.resellerPrice:p.price)}
+const PAGE_SIZE = 60;
+const SEARCH_DELAY = 180;
 
-const DAPUR_AYA_BRANCH_ID='dapur-aya-sembako';
-const SEBLAK_BRANCH_ID='aya-seblak-angkringan';
+let cart = [];
+let held = JSON.parse(localStorage.getItem('aya.held') || '[]');
+let products = [];
 
-function productBelongsToBranch(product,branchId){
-  if(!product||branchId==='all')return true;
+const saveHeld = () => localStorage.setItem('aya.held', JSON.stringify(held));
 
-  const branchIds=Array.isArray(product.branchIds)
-    ? product.branchIds.map(String)
-    : [];
-  const stockByBranch=product.stockByBranch&&typeof product.stockByBranch==='object'
-    ? product.stockByBranch
-    : {};
-  const hasBranchStock=Object.prototype.hasOwnProperty.call(stockByBranch,branchId);
-
-  // Produk yang memiliki penanda cabang atau stok cabang hanya tampil
-  // pada cabang yang memang ditentukan.
-  if(branchIds.includes(branchId)||hasBranchStock)return true;
-
-  const hasExplicitAssignment=branchIds.length>0||Object.keys(stockByBranch).length>0;
-  if(hasExplicitAssignment)return false;
-
-  // Kompatibilitas data menu lama: produk lama yang belum memiliki
-  // penanda cabang dianggap sebagai menu AYA Seblak, bukan DAPUR AYA.
-  return branchId===SEBLAK_BRANCH_ID;
+function effectivePrice(product, level) {
+  return number(
+    level === 'grosir'
+      ? product.wholesalePrice
+      : level === 'reseller'
+        ? product.resellerPrice
+        : product.price
+  );
 }
 
-export async function renderPOS(ctx){
-  products=await getProducts();cart=[];
-  const available=products
-    .filter(p=>p.active!==false&&productBelongsToBranch(p,ctx.branch.id))
-    .map(p=>({...p,stock:stockForBranch(p,ctx.branch.id)}));
-  const categories=['Semua',...new Set(available.map(p=>p.category))];
-  ctx.host.innerHTML=`<div class="product-layout">
-    <section class="card"><div class="toolbar"><div class="toolbar-group"><input id="productSearch" placeholder="Cari nama / barcode…" style="min-width:230px"><select id="categoryFilter">${categories.map(c=>`<option>${escapeHTML(c)}</option>`).join('')}</select><select id="priceLevel"><option value="ecer">Harga Ecer</option><option value="grosir">Harga Grosir</option><option value="reseller">Harga Reseller</option></select></div><div class="toolbar-group"><button id="scanButton" class="secondary-button">📷 Scan</button><button id="heldButton" class="secondary-button">Tertahan (${held.length})</button></div></div><div id="productGrid" class="product-grid"></div></section>
-    <aside class="card cart"><div class="toolbar"><h2>Transaksi Kasir</h2><span class="badge">${escapeHTML(ctx.branch.name)}</span></div><div id="cartList" class="cart-list"></div>
-      <div class="form-grid" style="margin-top:12px"><label>Jenis Pesanan<select id="orderType"><option>Makan di tempat</option><option>Dibungkus</option><option>Delivery</option></select></label><label>Metode Pembayaran<select id="paymentMethod"><option>TUNAI</option><option>QRIS</option><option>HUTANG</option><option>PERSONAL</option></select></label><label>Nama Pelanggan<input id="customerName" placeholder="Opsional"></label><label>Ongkos Kirim<input id="shipping" inputmode="numeric" value="0"></label><label>Jumlah Styrofoam<input id="styrofoamQty" type="number" min="0" value="0"></label><label>Diskon<input id="discount" inputmode="numeric" value="0"></label><label class="full">Uang Dibayar<input id="paid" inputmode="numeric" value="0"></label></div>
-      <div id="cartSummary" style="margin-top:12px"></div><div class="toolbar" style="margin-top:14px"><button id="holdButton" class="secondary-button">Tahan</button><button id="saveSale" class="primary-button">Simpan & Cetak</button></div>
-    </aside></div>`;
-  const renderProducts=()=>{const q=document.querySelector('#productSearch').value.toLowerCase(),cat=document.querySelector('#categoryFilter').value,level=document.querySelector('#priceLevel').value;document.querySelector('#productGrid').innerHTML=available.filter(p=>(cat==='Semua'||p.category===cat)&&(`${p.name} ${p.barcode}`.toLowerCase().includes(q))).map(p=>`<button class="product-button" data-product="${escapeHTML(p.id)}"><strong>${escapeHTML(p.name)}</strong><small class="muted">${escapeHTML(p.category)} · Stok ${p.stock}</small><span>${rupiah(effectivePrice(p,level))}</span></button>`).join('')||`<div class="empty-state">Tidak ada barang untuk cabang ${escapeHTML(ctx.branch.name)}.</div>`};
-  const renderCart=()=>{document.querySelector('#cartList').innerHTML=cart.map(i=>`<div class="cart-row"><div><strong>${escapeHTML(i.name)}</strong><small class="muted">${rupiah(i.price)} / ${escapeHTML(i.unit)}</small></div><div class="qty-controls"><button class="secondary-button" data-minus="${i.id}">−</button><b>${i.qty}</b><button class="secondary-button" data-plus="${i.id}">+</button></div></div>`).join('')||'<div class="empty-state">Belum ada item.</div>';renderSummary()};
-  const totals=()=>{const subtotal=sum(cart,i=>i.qty*i.price),shipping=number(document.querySelector('#shipping').value),styrofoamQty=number(document.querySelector('#styrofoamQty').value),discount=number(document.querySelector('#discount').value);return{subtotal,shipping,styrofoamQty,styrofoamTotal:styrofoamQty*1000,discount,total:Math.max(0,subtotal+shipping+styrofoamQty*1000-discount)}};
-  const renderSummary=()=>{const t=totals(),paid=number(document.querySelector('#paid').value);document.querySelector('#cartSummary').innerHTML=`<div class="summary-row"><span>Subtotal</span><b>${rupiah(t.subtotal)}</b></div><div class="summary-row"><span>Ongkir</span><b>${rupiah(t.shipping)}</b></div><div class="summary-row"><span>Styrofoam</span><b>${rupiah(t.styrofoamTotal)}</b></div><div class="summary-row"><span>Diskon</span><b>-${rupiah(t.discount)}</b></div><div class="summary-row total"><span>Total</span><b>${rupiah(t.total)}</b></div><div class="summary-row"><span>Kembali</span><b>${rupiah(Math.max(0,paid-t.total))}</b></div>`};
-  function addProduct(id){const p=available.find(x=>x.id===id);if(!p)return;const level=document.querySelector('#priceLevel').value;const existing=cart.find(x=>x.id===id);if(existing)existing.qty++;else cart.push({id:p.id,name:p.name,qty:1,price:effectivePrice(p,level),cost:number(p.cost),unit:p.unit,category:p.category});renderCart()}
-  renderProducts();renderCart();
-  document.querySelector('#productGrid').onclick=e=>{const b=e.target.closest('[data-product]');if(b)addProduct(b.dataset.product)};
-  document.querySelector('#productSearch').oninput=renderProducts;document.querySelector('#categoryFilter').onchange=renderProducts;document.querySelector('#priceLevel').onchange=renderProducts;
-  document.querySelector('#cartList').onclick=e=>{const plus=e.target.closest('[data-plus]'),minus=e.target.closest('[data-minus]');if(plus){cart.find(i=>i.id===plus.dataset.plus).qty++}if(minus){const item=cart.find(i=>i.id===minus.dataset.minus);item.qty--;if(item.qty<=0)cart=cart.filter(i=>i!==item)}renderCart()};
-  ['shipping','styrofoamQty','discount','paid'].forEach(id=>document.querySelector('#'+id).oninput=renderSummary);
-  document.querySelector('#holdButton').onclick=()=>{if(!cart.length)return ctx.notify('Keranjang masih kosong','error');held.push({id:uid('hold'),branchId:ctx.branch.id,items:cart,at:Date.now()});saveHeld();cart=[];ctx.notify('Transaksi ditahan');renderCart();document.querySelector('#heldButton').textContent=`Tertahan (${held.length})`};
-  document.querySelector('#heldButton').onclick=()=>showHeld(ctx,renderCart);
-  document.querySelector('#saveSale').onclick=async()=>{if(!cart.length)return ctx.notify('Tambahkan barang terlebih dahulu','error');const t=totals(),method=document.querySelector('#paymentMethod').value,paid=number(document.querySelector('#paid').value);if(!t.total)return ctx.notify('Total transaksi tidak valid','error');if(method==='TUNAI'&&paid<t.total)return ctx.notify('Nominal uang belum cukup. Transaksi tidak dapat disimpan.','error');if(method==='HUTANG'&&!document.querySelector('#customerName').value.trim())return ctx.notify('Nama pelanggan wajib untuk transaksi hutang','error');
-    const invoice=`${ctx.branch.code||'AYA'}-${new Date().toISOString().slice(0,10).replaceAll('-','')}-${String(Date.now()).slice(-6)}`;const sale={invoice,branchId:ctx.branch.id,branchName:ctx.branch.name,cashierId:ctx.user.uid||'local',cashierName:ctx.user.name||'Owner',items:cart.map(i=>({...i})),...t,paymentMethod:method,orderType:document.querySelector('#orderType').value,customerName:document.querySelector('#customerName').value.trim(),paid:method==='TUNAI'?paid:t.total,change:method==='TUNAI'?Math.max(0,paid-t.total):0,status:'queued',createdAt:Date.now()};
-    const result=await pushData(`sales/${ctx.branch.id}`,sale);await mirrorLegacySale(sale);for(const item of cart)await atomicStock(item.id,-item.qty,ctx.branch.id);if(method==='HUTANG')await pushData('debts',{type:'customer',customerName:sale.customerName,invoice,amount:t.total,remaining:t.total,status:'open',dueDate:'',branchId:ctx.branch.id});await audit('CREATE','POS',{invoice,total:t.total,source:result.source});ctx.notify(result.queued?'Tersimpan lokal; akan sinkron saat online':'Transaksi tersimpan');try{printReceipt(sale)}catch(error){ctx.notify(error.message,'error')}cart=[];renderCart();renderProducts()};
-  document.querySelector('#scanButton').onclick=()=>openScanner(ctx,code=>{document.querySelector('#productSearch').value=code;const p=available.find(x=>x.barcode===code);if(p)addProduct(p.id);else{renderProducts();ctx.notify('Barcode belum terdaftar','error')}});
+function debounce(callback, delay = SEARCH_DELAY) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => callback(...args), delay);
+  };
 }
-function showHeld(ctx,renderCart){const body=held.map(h=>`<div class="summary-row"><span>${new Date(h.at).toLocaleTimeString('id-ID')} · ${h.items.length} item</span><button class="secondary-button" data-resume="${h.id}">Lanjutkan</button></div>`).join('')||'<p class="muted">Tidak ada transaksi tertahan.</p>';ctx.dialog('Transaksi Tertahan',body,'');document.querySelector('#dialogBody').onclick=e=>{const b=e.target.closest('[data-resume]');if(!b)return;const h=held.find(x=>x.id===b.dataset.resume);cart=h.items;held=held.filter(x=>x!==h);saveHeld();document.querySelector('#appDialog').close();renderCart()}}
-function openScanner(ctx,onCode){const supported=scannerSupported();ctx.dialog('Scanner Barcode',`<video id="scannerVideo" style="width:100%;border-radius:12px;background:#000" playsinline></video><p class="muted">${supported?'Arahkan kamera ke barcode.':'Browser tidak mendukung BarcodeDetector. Gunakan kolom pencarian barcode manual.'}</p><div class="toolbar-group"><button id="rearCam" class="secondary-button">Kamera Belakang</button><button id="frontCam" class="secondary-button">Kamera Depan</button></div>`,'');if(!supported)return;const video=document.querySelector('#scannerVideo');const run=mode=>startScanner(video,code=>{onCode(code);document.querySelector('#appDialog').close()},{facingMode:mode}).catch(e=>ctx.notify(e.message,'error'));document.querySelector('#rearCam').onclick=()=>run('environment');document.querySelector('#frontCam').onclick=()=>run('user');run('environment');document.querySelector('#appDialog').addEventListener('close',stopScanner,{once:true})}
+
+export async function renderPOS(ctx) {
+  products = await getCachedProducts();
+  cart = [];
+
+  const available = products
+    .filter(product => (
+      product.active !== false
+      && productBelongsToBranch(product, ctx.branch.id)
+    ))
+    .map(product => ({
+      ...product,
+      stock: stockForBranch(product, ctx.branch.id),
+      _search: `${product.name || ''} ${product.barcode || ''} ${product.code || ''}`
+        .toLowerCase()
+    }));
+
+  const productById = new Map(available.map(product => [String(product.id), product]));
+  const productByBarcode = new Map(
+    available
+      .filter(product => product.barcode)
+      .map(product => [String(product.barcode), product])
+  );
+
+  const categories = [
+    'Semua',
+    ...new Set(available.map(product => product.category || 'Lainnya'))
+  ].sort((a, b) => (
+    a === 'Semua' ? -1 : b === 'Semua' ? 1 : String(a).localeCompare(String(b), 'id')
+  ));
+
+  let currentPage = 1;
+
+  ctx.host.innerHTML = `
+    <div class="product-layout">
+      <section class="card">
+        <div class="toolbar">
+          <div class="toolbar-group">
+            <input id="productSearch" placeholder="Cari nama / barcode…" style="min-width:230px">
+            <select id="categoryFilter">
+              ${categories.map(category => `<option>${escapeHTML(category)}</option>`).join('')}
+            </select>
+            <select id="priceLevel">
+              <option value="ecer">Harga Ecer</option>
+              <option value="grosir">Harga Grosir</option>
+              <option value="reseller">Harga Reseller</option>
+            </select>
+          </div>
+          <div class="toolbar-group">
+            <button id="scanButton" class="secondary-button">📷 Scan</button>
+            <button id="heldButton" class="secondary-button">Tertahan (${held.length})</button>
+          </div>
+        </div>
+
+        <div id="productGrid" class="product-grid"></div>
+
+        <div class="toolbar" style="margin-top:12px">
+          <small id="productCount" class="muted"></small>
+          <div class="toolbar-group">
+            <button id="previousProductPage" class="secondary-button">← Sebelumnya</button>
+            <span id="productPageLabel" class="badge">1 / 1</span>
+            <button id="nextProductPage" class="secondary-button">Berikutnya →</button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="card cart">
+        <div class="toolbar">
+          <h2>Transaksi Kasir</h2>
+          <span class="badge">${escapeHTML(ctx.branch.name)}</span>
+        </div>
+
+        <div id="cartList" class="cart-list"></div>
+
+        <div class="form-grid" style="margin-top:12px">
+          <label>Jenis Pesanan
+            <select id="orderType">
+              <option>Makan di tempat</option>
+              <option>Dibungkus</option>
+              <option>Delivery</option>
+            </select>
+          </label>
+          <label>Metode Pembayaran
+            <select id="paymentMethod">
+              <option>TUNAI</option>
+              <option>QRIS</option>
+              <option>HUTANG</option>
+              <option>PERSONAL</option>
+            </select>
+          </label>
+          <label>Nama Pelanggan<input id="customerName" placeholder="Opsional"></label>
+          <label>Ongkos Kirim<input id="shipping" inputmode="numeric" value="0"></label>
+          <label>Jumlah Styrofoam<input id="styrofoamQty" type="number" min="0" value="0"></label>
+          <label>Diskon<input id="discount" inputmode="numeric" value="0"></label>
+          <label class="full">Uang Dibayar<input id="paid" inputmode="numeric" value="0"></label>
+        </div>
+
+        <div id="cartSummary" style="margin-top:12px"></div>
+        <div class="toolbar" style="margin-top:14px">
+          <button id="holdButton" class="secondary-button">Tahan</button>
+          <button id="saveSale" class="primary-button">Simpan & Cetak</button>
+        </div>
+      </aside>
+    </div>`;
+
+  const filteredProducts = () => {
+    const query = document.querySelector('#productSearch').value.trim().toLowerCase();
+    const category = document.querySelector('#categoryFilter').value;
+
+    return available.filter(product => (
+      (category === 'Semua' || product.category === category)
+      && (!query || product._search.includes(query))
+    ));
+  };
+
+  const renderProducts = () => {
+    const rows = filteredProducts();
+    const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+    currentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const pageRows = rows.slice(start, start + PAGE_SIZE);
+    const level = document.querySelector('#priceLevel').value;
+
+    document.querySelector('#productGrid').innerHTML = pageRows.length
+      ? pageRows.map(product => `
+          <button class="product-button" data-product="${escapeHTML(product.id)}">
+            <strong>${escapeHTML(product.name)}</strong>
+            <small class="muted">${escapeHTML(product.category)} · Stok ${product.stock}</small>
+            <span>${rupiah(effectivePrice(product, level))}</span>
+          </button>`).join('')
+      : `<div class="empty-state">Tidak ada barang untuk cabang ${escapeHTML(ctx.branch.name)}.</div>`;
+
+    const firstNumber = rows.length ? start + 1 : 0;
+    const lastNumber = Math.min(start + PAGE_SIZE, rows.length);
+    document.querySelector('#productCount').textContent =
+      `Menampilkan ${firstNumber.toLocaleString('id-ID')}–${lastNumber.toLocaleString('id-ID')} dari ${rows.length.toLocaleString('id-ID')} barang`;
+
+    document.querySelector('#productPageLabel').textContent = `${currentPage} / ${totalPages}`;
+    document.querySelector('#previousProductPage').disabled = currentPage <= 1;
+    document.querySelector('#nextProductPage').disabled = currentPage >= totalPages;
+  };
+
+  const totals = () => {
+    const subtotal = sum(cart, item => item.qty * item.price);
+    const shipping = number(document.querySelector('#shipping').value);
+    const styrofoamQty = number(document.querySelector('#styrofoamQty').value);
+    const discount = number(document.querySelector('#discount').value);
+
+    return {
+      subtotal,
+      shipping,
+      styrofoamQty,
+      styrofoamTotal: styrofoamQty * 1000,
+      discount,
+      total: Math.max(0, subtotal + shipping + styrofoamQty * 1000 - discount)
+    };
+  };
+
+  const renderSummary = () => {
+    const values = totals();
+    const paid = number(document.querySelector('#paid').value);
+
+    document.querySelector('#cartSummary').innerHTML = `
+      <div class="summary-row"><span>Subtotal</span><b>${rupiah(values.subtotal)}</b></div>
+      <div class="summary-row"><span>Ongkir</span><b>${rupiah(values.shipping)}</b></div>
+      <div class="summary-row"><span>Styrofoam</span><b>${rupiah(values.styrofoamTotal)}</b></div>
+      <div class="summary-row"><span>Diskon</span><b>-${rupiah(values.discount)}</b></div>
+      <div class="summary-row total"><span>Total</span><b>${rupiah(values.total)}</b></div>
+      <div class="summary-row"><span>Kembali</span><b>${rupiah(Math.max(0, paid - values.total))}</b></div>`;
+  };
+
+  const renderCart = () => {
+    document.querySelector('#cartList').innerHTML = cart.length
+      ? cart.map(item => `
+          <div class="cart-row">
+            <div>
+              <strong>${escapeHTML(item.name)}</strong>
+              <small class="muted">${rupiah(item.price)} / ${escapeHTML(item.unit)}</small>
+            </div>
+            <div class="qty-controls">
+              <button class="secondary-button" data-minus="${escapeHTML(item.id)}">−</button>
+              <b>${item.qty}</b>
+              <button class="secondary-button" data-plus="${escapeHTML(item.id)}">+</button>
+            </div>
+          </div>`).join('')
+      : '<div class="empty-state">Belum ada item.</div>';
+
+    renderSummary();
+  };
+
+  function addProduct(id) {
+    const product = productById.get(String(id));
+    if (!product) return;
+
+    const level = document.querySelector('#priceLevel').value;
+    const existing = cart.find(item => item.id === product.id);
+
+    if (existing) existing.qty++;
+    else {
+      cart.push({
+        id: product.id,
+        name: product.name,
+        qty: 1,
+        price: effectivePrice(product, level),
+        cost: number(product.cost),
+        unit: product.unit,
+        category: product.category
+      });
+    }
+
+    renderCart();
+  }
+
+  renderProducts();
+  renderCart();
+
+  document.querySelector('#productGrid').onclick = event => {
+    const button = event.target.closest('[data-product]');
+    if (button) addProduct(button.dataset.product);
+  };
+
+  document.querySelector('#productSearch').oninput = debounce(() => {
+    currentPage = 1;
+    renderProducts();
+  });
+
+  document.querySelector('#categoryFilter').onchange = () => {
+    currentPage = 1;
+    renderProducts();
+  };
+
+  document.querySelector('#priceLevel').onchange = renderProducts;
+
+  document.querySelector('#previousProductPage').onclick = () => {
+    currentPage--;
+    renderProducts();
+    document.querySelector('#productGrid').scrollIntoView({ block: 'start' });
+  };
+
+  document.querySelector('#nextProductPage').onclick = () => {
+    currentPage++;
+    renderProducts();
+    document.querySelector('#productGrid').scrollIntoView({ block: 'start' });
+  };
+
+  document.querySelector('#cartList').onclick = event => {
+    const plus = event.target.closest('[data-plus]');
+    const minus = event.target.closest('[data-minus]');
+
+    if (plus) {
+      const item = cart.find(row => row.id === plus.dataset.plus);
+      if (item) item.qty++;
+    }
+
+    if (minus) {
+      const item = cart.find(row => row.id === minus.dataset.minus);
+      if (item) {
+        item.qty--;
+        if (item.qty <= 0) cart = cart.filter(row => row !== item);
+      }
+    }
+
+    renderCart();
+  };
+
+  ['shipping', 'styrofoamQty', 'discount', 'paid'].forEach(id => {
+    document.querySelector(`#${id}`).oninput = renderSummary;
+  });
+
+  document.querySelector('#holdButton').onclick = () => {
+    if (!cart.length) return ctx.notify('Keranjang masih kosong', 'error');
+
+    held.push({
+      id: uid('hold'),
+      branchId: ctx.branch.id,
+      items: cart,
+      at: Date.now()
+    });
+
+    saveHeld();
+    cart = [];
+    ctx.notify('Transaksi ditahan');
+    renderCart();
+    document.querySelector('#heldButton').textContent = `Tertahan (${held.length})`;
+  };
+
+  document.querySelector('#heldButton').onclick = () => showHeld(ctx, renderCart);
+
+  document.querySelector('#saveSale').onclick = async () => {
+    if (!cart.length) return ctx.notify('Tambahkan barang terlebih dahulu', 'error');
+
+    const values = totals();
+    const method = document.querySelector('#paymentMethod').value;
+    const paid = number(document.querySelector('#paid').value);
+
+    if (!values.total) return ctx.notify('Total transaksi tidak valid', 'error');
+    if (method === 'TUNAI' && paid < values.total) {
+      return ctx.notify('Nominal uang belum cukup. Transaksi tidak dapat disimpan.', 'error');
+    }
+    if (method === 'HUTANG' && !document.querySelector('#customerName').value.trim()) {
+      return ctx.notify('Nama pelanggan wajib untuk transaksi hutang', 'error');
+    }
+
+    const invoice = `${ctx.branch.code || 'AYA'}-${new Date().toISOString().slice(0, 10).replaceAll('-', '')}-${String(Date.now()).slice(-6)}`;
+    const soldItems = cart.map(item => ({ ...item }));
+
+    const sale = {
+      invoice,
+      branchId: ctx.branch.id,
+      branchName: ctx.branch.name,
+      cashierId: ctx.user.uid || 'local',
+      cashierName: ctx.user.name || 'Owner',
+      items: soldItems,
+      ...values,
+      paymentMethod: method,
+      orderType: document.querySelector('#orderType').value,
+      customerName: document.querySelector('#customerName').value.trim(),
+      paid: method === 'TUNAI' ? paid : values.total,
+      change: method === 'TUNAI' ? Math.max(0, paid - values.total) : 0,
+      status: 'queued',
+      createdAt: Date.now()
+    };
+
+    const result = await pushData(`sales/${ctx.branch.id}`, sale);
+    await mirrorLegacySale(sale);
+
+    for (const item of soldItems) {
+      await atomicStock(item.id, -item.qty, ctx.branch.id);
+      const visibleProduct = productById.get(String(item.id));
+      if (visibleProduct) visibleProduct.stock = Math.max(0, number(visibleProduct.stock) - item.qty);
+    }
+
+    if (method === 'HUTANG') {
+      await pushData('debts', {
+        type: 'customer',
+        customerName: sale.customerName,
+        invoice,
+        amount: values.total,
+        remaining: values.total,
+        status: 'open',
+        dueDate: '',
+        branchId: ctx.branch.id
+      });
+    }
+
+    await audit('CREATE', 'POS', {
+      invoice,
+      total: values.total,
+      source: result.source
+    });
+
+    ctx.notify(
+      result.queued
+        ? 'Tersimpan lokal; akan sinkron saat online'
+        : 'Transaksi tersimpan'
+    );
+
+    try {
+      printReceipt(sale);
+    } catch (error) {
+      ctx.notify(error.message, 'error');
+    }
+
+    cart = [];
+    renderCart();
+    renderProducts();
+  };
+
+  document.querySelector('#scanButton').onclick = () => openScanner(ctx, code => {
+    const product = productByBarcode.get(String(code));
+
+    if (product) {
+      addProduct(product.id);
+      return;
+    }
+
+    document.querySelector('#productSearch').value = code;
+    currentPage = 1;
+    renderProducts();
+    ctx.notify('Barcode belum terdaftar', 'error');
+  });
+}
+
+function showHeld(ctx, renderCart) {
+  const rows = held.filter(item => item.branchId === ctx.branch.id);
+
+  const body = rows.length
+    ? rows.map(item => `
+        <div class="summary-row">
+          <span>${new Date(item.at).toLocaleTimeString('id-ID')} · ${item.items.length} item</span>
+          <button class="secondary-button" data-resume="${item.id}">Lanjutkan</button>
+        </div>`).join('')
+    : '<p class="muted">Tidak ada transaksi tertahan pada cabang ini.</p>';
+
+  ctx.dialog('Transaksi Tertahan', body, '');
+
+  document.querySelector('#dialogBody').onclick = event => {
+    const button = event.target.closest('[data-resume]');
+    if (!button) return;
+
+    const selected = held.find(item => item.id === button.dataset.resume);
+    if (!selected) return;
+
+    cart = selected.items;
+    held = held.filter(item => item !== selected);
+    saveHeld();
+    document.querySelector('#appDialog').close();
+    renderCart();
+  };
+}
+
+function openScanner(ctx, onCode) {
+  const supported = scannerSupported();
+
+  ctx.dialog(
+    'Scanner Barcode',
+    `<video id="scannerVideo" style="width:100%;border-radius:12px;background:#000" playsinline></video>
+     <p class="muted">${supported
+       ? 'Arahkan kamera ke barcode.'
+       : 'Browser tidak mendukung BarcodeDetector. Gunakan kolom pencarian barcode manual.'}</p>
+     <div class="toolbar-group">
+       <button id="rearCam" class="secondary-button">Kamera Belakang</button>
+       <button id="frontCam" class="secondary-button">Kamera Depan</button>
+     </div>`,
+    ''
+  );
+
+  if (!supported) return;
+
+  const video = document.querySelector('#scannerVideo');
+  const run = mode => startScanner(
+    video,
+    code => {
+      onCode(code);
+      document.querySelector('#appDialog').close();
+    },
+    { facingMode: mode }
+  ).catch(error => ctx.notify(error.message, 'error'));
+
+  document.querySelector('#rearCam').onclick = () => run('environment');
+  document.querySelector('#frontCam').onclick = () => run('user');
+  run('environment');
+
+  document.querySelector('#appDialog').addEventListener('close', stopScanner, { once: true });
+}
