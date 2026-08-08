@@ -1,6 +1,10 @@
-import { getProducts } from './store.js';
+import {
+  getProducts,
+  invalidateDataCache
+} from './store.js';
 
-const CACHE_LIFETIME = 5 * 60 * 1000;
+const CACHE_LIFETIME = 10 * 60 * 1000;
+
 let cachedProducts = null;
 let loadedAt = 0;
 let pendingRequest = null;
@@ -14,7 +18,13 @@ export async function getCachedProducts({ force = false } = {}) {
   if (!force && cacheIsFresh) return cachedProducts;
   if (!force && pendingRequest) return pendingRequest;
 
-  pendingRequest = getProducts()
+  if (force) {
+    invalidateDataCache('products');
+    cachedProducts = null;
+    loadedAt = 0;
+  }
+
+  pendingRequest = getProducts({ force })
     .then(rows => {
       cachedProducts = Array.isArray(rows) ? rows : [];
       loadedAt = Date.now();
@@ -27,10 +37,16 @@ export async function getCachedProducts({ force = false } = {}) {
   return pendingRequest;
 }
 
-export function invalidateProductCache() {
+export function invalidateProductCache({
+  includeStore = true
+} = {}) {
   cachedProducts = null;
   loadedAt = 0;
   pendingRequest = null;
+
+  if (includeStore) {
+    invalidateDataCache('products');
+  }
 }
 
 export function productBelongsToBranch(product, branchId) {
@@ -47,8 +63,13 @@ export function productBelongsToBranch(product, branchId) {
 
   if (
     branchIds.includes(branchId)
-    || Object.prototype.hasOwnProperty.call(stockByBranch, branchId)
-  ) return true;
+    || Object.prototype.hasOwnProperty.call(
+      stockByBranch,
+      branchId
+    )
+  ) {
+    return true;
+  }
 
   const hasExplicitAssignment = (
     branchIds.length > 0
@@ -57,6 +78,18 @@ export function productBelongsToBranch(product, branchId) {
 
   if (hasExplicitAssignment) return false;
 
-  // Data menu lama tanpa penanda cabang dianggap sebagai menu AYA Seblak.
   return branchId === 'aya-seblak-angkringan';
 }
+
+window.addEventListener('aya-data-changed', event => {
+  const scopes = event.detail?.scopes || [];
+
+  if (
+    scopes.includes('products')
+    || scopes.includes('branches')
+  ) {
+    cachedProducts = null;
+    loadedAt = 0;
+    pendingRequest = null;
+  }
+});
