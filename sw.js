@@ -1,4 +1,4 @@
-const CACHE = 'aya-pos-v2.7.0-mode-ringan';
+const CACHE = 'aya-pos-v2.7.2-default-kasir';
 const ASSETS = [
   './',
   './index.html',
@@ -10,6 +10,7 @@ const ASSETS = [
   './css/fixes-v2.5.css',
   './css/fixes-v2.6.css',
   './js/app.js',
+  './js/default-pos.js',
   './js/aya-v2.6-fixes.js',
   './js/aya-v2.6.1-category-fix.js',
   './js/script.js',
@@ -49,7 +50,9 @@ self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
       .then(keys => Promise.all(
-        keys.filter(key => key !== CACHE).map(key => caches.delete(key))
+        keys
+          .filter(key => key !== CACHE)
+          .map(key => caches.delete(key))
       ))
       .then(() => self.clients.claim())
   );
@@ -68,7 +71,15 @@ self.addEventListener('fetch', event => {
         caches.open(CACHE).then(cache => cache.put(event.request, copy));
         return response;
       })
-      .catch(() => caches.match(event.request)
-        .then(response => response || caches.match('./index.html')))
+      .catch(async () => {
+        const cached = await caches.match(event.request);
+        if (cached) return cached;
+
+        if (event.request.mode === 'navigate') {
+          return caches.match('./index.html');
+        }
+
+        return Response.error();
+      })
   );
 });
