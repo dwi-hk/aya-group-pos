@@ -6,7 +6,14 @@ import { connectPrinter, bluetoothSupported } from './bluetooth.js';
 export async function renderSettings(ctx){
   const [databaseSettings,stats]=await Promise.all([getOnce('businessSettings'),getOnce('legacyStats')]);
   const local=JSON.parse(localStorage.getItem('aya.settings')||'{}');
-  const current={...(databaseSettings||{}),...local};
+
+  /*
+   * Firebase menjadi sumber utama agar identitas usaha konsisten
+   * pada laptop, tablet, dan HP.
+   */
+  const current={...local,...(databaseSettings||{})};
+  localStorage.setItem('aya.settings',JSON.stringify(current));
+
   const count=(key)=>Number(stats?.[key]||0).toLocaleString('id-ID');
   ctx.host.innerHTML=`
   <div class="grid two">
