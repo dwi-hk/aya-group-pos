@@ -1,4 +1,4 @@
-const CACHE = 'aya-pos-v2.10.8-stok-awal-100000';
+const CACHE = 'aya-pos-v2.10.9-fix-import-hpp';
 
 const ASSETS = [
   './',
