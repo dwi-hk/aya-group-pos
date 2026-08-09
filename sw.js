@@ -1,4 +1,4 @@
-const CACHE = 'aya-pos-v2.10.5-wa-di-nota';
+const CACHE = 'aya-pos-v2.10.6-hpp-profit-master';
 
 const ASSETS = [
   './',
@@ -11,6 +11,7 @@ const ASSETS = [
   './css/fixes-v2.5.css',
   './css/fixes-v2.6.css',
   './css/reports-v2.10.1.css',
+  './css/master-profit-v2.10.6.css',
   './js/app.js',
   './js/aya-v2.6-fixes.js',
   './js/aya-v2.6.1-category-fix.js',
@@ -24,6 +25,7 @@ const ASSETS = [
   './js/dashboard.js',
   './js/pos.js',
   './js/master.js',
+  './js/master-profit.js',
   './js/branch.js',
   './js/transaction.js',
   './js/backoffice.js',
