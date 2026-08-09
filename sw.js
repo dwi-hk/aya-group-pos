@@ -1,4 +1,4 @@
-const CACHE = 'aya-pos-v2.10.3-fix-transaksi-ganda';
+const CACHE = 'aya-pos-v2.10.4-batalkan-nota';
 
 const ASSETS = [
   './',
