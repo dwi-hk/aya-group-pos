@@ -1,4 +1,4 @@
-const CACHE = 'aya-pos-v2.10.7-fix-simpan-master';
+const CACHE = 'aya-pos-v2.10.8-stok-awal-100000';
 
 const ASSETS = [
   './',
