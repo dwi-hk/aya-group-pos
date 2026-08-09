@@ -1,4 +1,9 @@
 import { saveProduct, setData, getOnce, pushData, stockForBranch } from './store.js';
+import { db } from './firebase-config.js';
+import {
+  ref,
+  update
+} from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js';
 import {
   getCachedProducts,
   invalidateProductCache,
@@ -13,6 +18,12 @@ import { printLabel } from './print.js';
 const MASTER_PAGE_SIZE = 100;
 const MASTER_SEARCH_DELAY = 180;
 const THIN_MARGIN_LIMIT = 10;
+
+const INITIAL_STOCK_BRANCH_ID = 'aya-seblak-angkringan';
+const INITIAL_STOCK_VALUE = 100000;
+const INITIAL_STOCK_DATE = '2026-08-09';
+const INITIAL_STOCK_MARKER =
+  `settings/stockInitializations/${INITIAL_STOCK_BRANCH_ID}/${INITIAL_STOCK_DATE}`;
 
 function profitInfo(product = {}) {
   const hpp = number(product.cost);
@@ -129,6 +140,15 @@ export async function renderMaster(ctx) {
   let currentPage = 1;
   let productById = new Map();
 
+  const canInitializeStock = (
+    String(ctx.user?.role || '').toLowerCase() === 'owner'
+    && ctx.branch.id === INITIAL_STOCK_BRANCH_ID
+  );
+
+  let stockInitialization = canInitializeStock
+    ? await getOnce(INITIAL_STOCK_MARKER, { force: true })
+    : null;
+
   const applyBranch = () => {
     products = allProducts
       .filter(product => (
@@ -215,6 +235,185 @@ export async function renderMaster(ctx) {
     applyBranch();
   };
 
+  const initializeAllBranchStock = async () => {
+    if (!canInitializeStock) {
+      ctx.notify(
+        'Fitur ini hanya untuk Owner di cabang AYA SEBLAK DAN ANGKRINGAN.',
+        'error'
+      );
+      return;
+    }
+
+    if (!navigator.onLine) {
+      ctx.notify(
+        'Inisialisasi stok harus dilakukan saat perangkat online agar semua perangkat langsung memakai nilai yang sama.',
+        'error'
+      );
+      return;
+    }
+
+    const latestMarker = await getOnce(
+      INITIAL_STOCK_MARKER,
+      { force: true }
+    );
+
+    if (latestMarker?.status === 'done') {
+      stockInitialization = latestMarker;
+      ctx.notify(
+        'Stok awal 100.000 sudah pernah diaktifkan dan tidak akan disetel ulang.'
+      );
+      draw();
+      return;
+    }
+
+    const eligibleProducts = products.filter(
+      product => product.active !== false
+    );
+
+    if (!eligibleProducts.length) {
+      ctx.notify(
+        'Tidak ada barang aktif pada cabang ini.',
+        'error'
+      );
+      return;
+    }
+
+    const approved = confirm(
+      `Set semua stok cabang AYA SEBLAK DAN ANGKRINGAN menjadi ${INITIAL_STOCK_VALUE.toLocaleString('id-ID')}?\n\n`
+      + `Jumlah barang: ${eligibleProducts.length.toLocaleString('id-ID')}\n`
+      + `Mulai berlaku: saat tombol ini dijalankan pada ${INITIAL_STOCK_DATE}\n\n`
+      + `Transaksi sebelum tombol dijalankan tidak dihitung ulang. `
+      + `Setelah aktif, setiap penjualan tetap mengurangi stok.\n\n`
+      + `Tindakan ini hanya boleh dijalankan satu kali.`
+    );
+
+    if (!approved) return;
+
+    const typed = prompt(
+      `Ketik SET 100000 untuk melanjutkan.\n\n`
+      + `Semua stok cabang akan diubah menjadi 100.000.`
+    );
+
+    if (String(typed || '').trim().toUpperCase() !== 'SET 100000') {
+      ctx.notify(
+        'Konfirmasi tidak cocok. Inisialisasi dibatalkan.',
+        'error'
+      );
+      return;
+    }
+
+    const button = document.querySelector('#initializeBranchStock');
+    const originalText = button?.textContent || 'Aktifkan Stok 100.000';
+
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'Mengatur stok…';
+    }
+
+    const completedAt = Date.now();
+    const databaseUpdates = {};
+
+    for (const product of eligibleProducts) {
+      const id = String(product.id);
+
+      /*
+       * Dua lokasi disamakan saat inisialisasi:
+       * 1. stockByBranch = sumber stok transaksi aktif.
+       * 2. products/.../stockByBranch = kompatibilitas data produk.
+       */
+      databaseUpdates[
+        `stockByBranch/${INITIAL_STOCK_BRANCH_ID}/${id}`
+      ] = INITIAL_STOCK_VALUE;
+
+      databaseUpdates[
+        `products/${id}/stockByBranch/${INITIAL_STOCK_BRANCH_ID}`
+      ] = INITIAL_STOCK_VALUE;
+    }
+
+    databaseUpdates[INITIAL_STOCK_MARKER] = {
+      status: 'done',
+      branchId: INITIAL_STOCK_BRANCH_ID,
+      branchName: ctx.branch.name,
+      value: INITIAL_STOCK_VALUE,
+      productCount: eligibleProducts.length,
+      effectiveDate: INITIAL_STOCK_DATE,
+      completedAt,
+      completedBy: ctx.user.name || 'Owner',
+      completedByUid: ctx.user.uid || ''
+    };
+
+    try {
+      /*
+       * Satu multi-location update Firebase:
+       * semua barang dan marker berhasil bersama-sama atau gagal bersama-sama.
+       */
+      await update(
+        ref(db, 'ayaGroupV2'),
+        databaseUpdates
+      );
+
+      for (const product of eligibleProducts) {
+        product.stock = INITIAL_STOCK_VALUE;
+        product.stockByBranch = {
+          ...(product.stockByBranch || {}),
+          [INITIAL_STOCK_BRANCH_ID]: INITIAL_STOCK_VALUE
+        };
+
+        const original = allProducts.find(
+          row => String(row.id) === String(product.id)
+        );
+
+        if (original) {
+          original.stockByBranch = {
+            ...(original.stockByBranch || {}),
+            [INITIAL_STOCK_BRANCH_ID]: INITIAL_STOCK_VALUE
+          };
+        }
+      }
+
+      stockInitialization = databaseUpdates[
+        INITIAL_STOCK_MARKER
+      ];
+
+      try {
+        await audit('UPDATE', 'INITIALIZE_BRANCH_STOCK', {
+          branchId: INITIAL_STOCK_BRANCH_ID,
+          stockValue: INITIAL_STOCK_VALUE,
+          productCount: eligibleProducts.length,
+          effectiveDate: INITIAL_STOCK_DATE
+        });
+      } catch (auditError) {
+        console.warn(
+          'Audit inisialisasi stok gagal:',
+          auditError
+        );
+      }
+
+      await reloadProducts();
+      draw();
+
+      ctx.notify(
+        `${eligibleProducts.length.toLocaleString('id-ID')} barang berhasil disetel ke stok ${INITIAL_STOCK_VALUE.toLocaleString('id-ID')}. Penjualan berikutnya akan mengurangi stok.`
+      );
+    } catch (error) {
+      console.error(
+        'Inisialisasi stok 100.000 gagal:',
+        error
+      );
+
+      ctx.notify(
+        error.message
+          || 'Stok belum diubah. Periksa koneksi dan izin Firebase.',
+        'error'
+      );
+
+      if (button?.isConnected) {
+        button.disabled = false;
+        button.textContent = originalText;
+      }
+    }
+  };
+
   const draw = () => {
     const categories = [
       'Semua',
@@ -236,6 +435,17 @@ export async function renderMaster(ctx) {
           </div>
           <div class="toolbar-group">
             <button id="refreshProducts" class="secondary-button">↻ Muat Ulang</button>
+            ${canInitializeStock ? `
+              <button
+                id="initializeBranchStock"
+                class="${stockInitialization?.status === 'done' ? 'secondary-button' : 'danger-button'}"
+                ${stockInitialization?.status === 'done' ? 'disabled' : ''}
+              >
+                ${stockInitialization?.status === 'done'
+                  ? '✓ Stok 100.000 Sudah Aktif'
+                  : 'Set Semua Stok 100.000'}
+              </button>
+            ` : ''}
             <button id="exportProducts" class="secondary-button">Export CSV</button>
             <label class="secondary-button" style="display:inline-flex;cursor:pointer">
               Import CSV
@@ -249,6 +459,18 @@ export async function renderMaster(ctx) {
           Cabang aktif: <strong>${escapeHTML(ctx.branch.name)}</strong>.
           Daftar dibatasi 100 baris per halaman agar tetap ringan.
         </p>
+
+        ${canInitializeStock ? `
+          <p class="muted" style="margin-top:-6px">
+            Stok awal cabang:
+            <strong>
+              ${stockInitialization?.status === 'done'
+                ? `${INITIAL_STOCK_VALUE.toLocaleString('id-ID')} telah diaktifkan pada ${new Date(stockInitialization.completedAt).toLocaleString('id-ID')}`
+                : `${INITIAL_STOCK_VALUE.toLocaleString('id-ID')} belum diaktifkan`}
+            </strong>.
+            Nilai hanya disetel satu kali; transaksi berikutnya tetap memotong stok.
+          </p>
+        ` : ''}
 
         <section class="master-profit-summary">
           <article class="master-profit-stat">
@@ -338,6 +560,13 @@ export async function renderMaster(ctx) {
       draw();
       ctx.notify('Data barang terbaru sudah dimuat');
     };
+
+    const initializeButton =
+      document.querySelector('#initializeBranchStock');
+
+    if (initializeButton && !initializeButton.disabled) {
+      initializeButton.onclick = initializeAllBranchStock;
+    }
 
     document.querySelector('#addProduct').onclick = () => productForm(
       ctx,
@@ -482,7 +711,20 @@ export async function renderMaster(ctx) {
             branchIds: ctx.branch.id === 'all' ? [] : [ctx.branch.id],
             stockByBranch: ctx.branch.id === 'all'
               ? {}
-              : { [ctx.branch.id]: number(row.stock) }
+              : {
+                  [ctx.branch.id]: (
+                    ctx.branch.id === INITIAL_STOCK_BRANCH_ID
+                    && String(row.stock ?? '').trim() === ''
+                  )
+                    ? INITIAL_STOCK_VALUE
+                    : number(row.stock)
+                },
+            stock: (
+              ctx.branch.id === INITIAL_STOCK_BRANCH_ID
+              && String(row.stock ?? '').trim() === ''
+            )
+              ? INITIAL_STOCK_VALUE
+              : number(row.stock)
           });
 
           await saveProduct(product);
@@ -523,6 +765,13 @@ function normalizeRow(product) {
 function productForm(ctx, product, onSave) {
   product = product || {};
 
+  const defaultStock = (
+    !product.id
+    && ctx.branch.id === INITIAL_STOCK_BRANCH_ID
+  )
+    ? INITIAL_STOCK_VALUE
+    : number(product.stock);
+
   ctx.dialog(
     product.id ? 'Edit Barang' : 'Tambah Barang',
     `<form id="productForm" class="form-grid">
@@ -542,7 +791,7 @@ function productForm(ctx, product, onSave) {
 
       <label>Harga Grosir<input id="productWholesalePrice" name="wholesalePrice" inputmode="numeric" value="${product.wholesalePrice || product.price || 0}"></label>
       <label>Harga Reseller<input id="productResellerPrice" name="resellerPrice" inputmode="numeric" value="${product.resellerPrice || product.price || 0}"></label>
-      <label>Stok<input name="stock" inputmode="numeric" value="${product.stock || 0}"></label>
+      <label>Stok<input name="stock" inputmode="numeric" value="${defaultStock}"></label>
       <label>Stok Minimum<input name="minStock" inputmode="numeric" value="${product.minStock ?? 5}"></label>
       <label class="full">
         Komposisi / Bahan (satu baris per bahan)

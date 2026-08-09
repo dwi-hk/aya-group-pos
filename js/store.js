@@ -620,9 +620,15 @@ export async function getProducts({ force = false } = {}) {
 
       for (const [id, { raw, meta }] of rawMap) {
         const stockByBranch = {
+          /*
+           * Urutan prioritas stok:
+           * legacy < stok tertanam produk < stok cabang aktif V2.
+           * Dengan demikian hasil transaksi pada stockByBranch tidak
+           * tertimpa angka lama ketika aplikasi dimuat ulang.
+           */
           ...(legacyStocks[id] || {}),
-          ...(v2Stocks[id] || {}),
-          ...(raw.stockByBranch || {})
+          ...(raw.stockByBranch || {}),
+          ...(v2Stocks[id] || {})
         };
 
         const product = normalizeProduct(
