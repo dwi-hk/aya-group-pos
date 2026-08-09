@@ -1,4 +1,4 @@
-const CACHE = 'aya-pos-v2.10.6-hpp-profit-master';
+const CACHE = 'aya-pos-v2.10.7-fix-simpan-master';
 
 const ASSETS = [
   './',
@@ -25,7 +25,6 @@ const ASSETS = [
   './js/dashboard.js',
   './js/pos.js',
   './js/master.js',
-  './js/master-profit.js',
   './js/branch.js',
   './js/transaction.js',
   './js/backoffice.js',
