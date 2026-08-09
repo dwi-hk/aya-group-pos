@@ -12,6 +12,108 @@ import { printLabel } from './print.js';
 
 const MASTER_PAGE_SIZE = 100;
 const MASTER_SEARCH_DELAY = 180;
+const THIN_MARGIN_LIMIT = 10;
+
+function profitInfo(product = {}) {
+  const hpp = number(product.cost);
+  const retailPrice = number(product.price);
+  const wholesalePrice = number(
+    product.wholesalePrice || retailPrice
+  );
+  const resellerPrice = number(
+    product.resellerPrice || retailPrice
+  );
+
+  const retailProfit = retailPrice - hpp;
+  const wholesaleProfit = wholesalePrice - hpp;
+  const resellerProfit = resellerPrice - hpp;
+  const retailMargin = retailPrice > 0
+    ? (retailProfit / retailPrice) * 100
+    : 0;
+
+  let status = 'Untung';
+  let statusClass = 'profit-good';
+
+  if (hpp <= 0) {
+    status = 'HPP Belum Diisi';
+    statusClass = 'profit-missing';
+  } else if (retailProfit < 0) {
+    status = 'Rugi';
+    statusClass = 'profit-loss';
+  } else if (retailProfit === 0) {
+    status = 'Impas';
+    statusClass = 'profit-even';
+  } else if (retailMargin < THIN_MARGIN_LIMIT) {
+    status = 'Profit Tipis';
+    statusClass = 'profit-thin';
+  }
+
+  return {
+    hpp,
+    retailPrice,
+    wholesalePrice,
+    resellerPrice,
+    retailProfit,
+    wholesaleProfit,
+    resellerProfit,
+    retailMargin,
+    status,
+    statusClass
+  };
+}
+
+function profitSummary(products = []) {
+  return products.reduce((summary, product) => {
+    const info = profitInfo(product);
+
+    summary.total++;
+
+    if (info.hpp <= 0) summary.missing++;
+    else if (info.retailProfit < 0) summary.loss++;
+    else if (info.retailProfit === 0) summary.even++;
+    else if (info.retailMargin < THIN_MARGIN_LIMIT) summary.thin++;
+    else summary.profit++;
+
+    return summary;
+  }, {
+    total: 0,
+    profit: 0,
+    thin: 0,
+    even: 0,
+    loss: 0,
+    missing: 0
+  });
+}
+
+function profitCell(product) {
+  const info = profitInfo(product);
+
+  if (info.hpp <= 0) {
+    return `
+      <div class="master-profit-cell">
+        <strong class="profit-missing">HPP belum diisi</strong>
+        <small>Profit belum dapat dihitung dengan benar.</small>
+        <span class="master-profit-badge profit-missing">
+          Lengkapi HPP
+        </span>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="master-profit-cell">
+      <strong class="${info.statusClass}">
+        Ecer: ${rupiah(info.retailProfit)}
+      </strong>
+      <small>Margin ${info.retailMargin.toFixed(1)}%</small>
+      <small>Grosir: ${rupiah(info.wholesaleProfit)}</small>
+      <small>Reseller: ${rupiah(info.resellerProfit)}</small>
+      <span class="master-profit-badge ${info.statusClass}">
+        ${escapeHTML(info.status)}
+      </span>
+    </div>
+  `;
+}
 
 function debounce(callback, delay = MASTER_SEARCH_DELAY) {
   let timer;
@@ -82,6 +184,7 @@ export async function renderMaster(ctx) {
             </td>
             <td>${rupiah(product.price)}</td>
             <td>${rupiah(product.wholesalePrice)}</td>
+            <td>${profitCell(product)}</td>
             <td>
               <span class="status ${Number(product.stock) <= Number(product.minStock) ? 'danger' : 'success'}">
                 ${product.stock} / min ${product.minStock}
@@ -93,7 +196,7 @@ export async function renderMaster(ctx) {
               <button class="icon-button" data-product-delete="${escapeHTML(product.id)}">🗑️</button>
             </td>
           </tr>`).join('')
-      : '<tr><td colspan="8">Belum ada data barang pada cabang ini.</td></tr>';
+      : '<tr><td colspan="9">Belum ada data barang pada cabang ini.</td></tr>';
 
     const firstNumber = rows.length ? start + 1 : 0;
     const lastNumber = Math.min(start + MASTER_PAGE_SIZE, rows.length);
@@ -120,6 +223,8 @@ export async function renderMaster(ctx) {
       a === 'Semua' ? -1 : b === 'Semua' ? 1 : String(a).localeCompare(String(b), 'id')
     ));
 
+    const summary = profitSummary(products);
+
     ctx.host.innerHTML = `
       <article class="card">
         <div class="toolbar">
@@ -145,6 +250,33 @@ export async function renderMaster(ctx) {
           Daftar dibatasi 100 baris per halaman agar tetap ringan.
         </p>
 
+        <section class="master-profit-summary">
+          <article class="master-profit-stat">
+            <span>Total Barang</span>
+            <strong>${summary.total.toLocaleString('id-ID')}</strong>
+          </article>
+
+          <article class="master-profit-stat profit-good">
+            <span>Untung</span>
+            <strong>${summary.profit.toLocaleString('id-ID')}</strong>
+          </article>
+
+          <article class="master-profit-stat profit-thin">
+            <span>Profit Tipis</span>
+            <strong>${summary.thin.toLocaleString('id-ID')}</strong>
+          </article>
+
+          <article class="master-profit-stat profit-loss">
+            <span>Rugi / Impas</span>
+            <strong>${(summary.loss + summary.even).toLocaleString('id-ID')}</strong>
+          </article>
+
+          <article class="master-profit-stat profit-missing">
+            <span>HPP Kosong</span>
+            <strong>${summary.missing.toLocaleString('id-ID')}</strong>
+          </article>
+        </section>
+
         <div class="table-wrap">
           <table>
             <thead>
@@ -152,9 +284,10 @@ export async function renderMaster(ctx) {
                 <th>Barang</th>
                 <th>Kategori</th>
                 <th>Barcode</th>
-                <th>Harga Beli</th>
+                <th>HPP / Harga Beli</th>
                 <th>Harga Ecer</th>
                 <th>Grosir</th>
+                <th>Profit & Margin</th>
                 <th>Stok</th>
                 <th>Aksi</th>
               </tr>
@@ -283,17 +416,56 @@ export async function renderMaster(ctx) {
 
     document.querySelector('#exportProducts').onclick = () => {
       const headers = [
-        'id', 'name', 'category', 'barcode', 'cost', 'price',
-        'wholesalePrice', 'resellerPrice', 'stock', 'minStock', 'unit'
+        'id',
+        'name',
+        'category',
+        'barcode',
+        'hpp',
+        'price',
+        'profitEcer',
+        'marginEcerPersen',
+        'wholesalePrice',
+        'profitGrosir',
+        'resellerPrice',
+        'profitReseller',
+        'profitStatus',
+        'stock',
+        'minStock',
+        'unit'
       ];
 
       const csv = [
         headers.join(','),
-        ...products.map(product => headers.map(header => csvCell(product[header])).join(','))
+        ...products.map(product => {
+          const info = profitInfo(product);
+
+          const row = {
+            id: product.id,
+            name: product.name,
+            category: product.category,
+            barcode: product.barcode,
+            hpp: info.hpp,
+            price: info.retailPrice,
+            profitEcer: info.retailProfit,
+            marginEcerPersen: info.retailMargin.toFixed(2),
+            wholesalePrice: info.wholesalePrice,
+            profitGrosir: info.wholesaleProfit,
+            resellerPrice: info.resellerPrice,
+            profitReseller: info.resellerProfit,
+            profitStatus: info.status,
+            stock: product.stock,
+            minStock: product.minStock,
+            unit: product.unit
+          };
+
+          return headers
+            .map(header => csvCell(row[header]))
+            .join(',');
+        })
       ].join('\n');
 
       download(
-        `master-barang-${ctx.branch.id}.csv`,
+        `master-hpp-profit-${ctx.branch.id}.csv`,
         csv,
         'text/csv'
       );
@@ -360,13 +532,16 @@ function productForm(ctx, product, onSave) {
       <label>Satuan Kecil<input name="unit" value="${escapeHTML(product.unit || 'pcs')}"></label>
       <label>Harga Beli Satuan Besar<input id="productCartonCost" name="cartonCost" inputmode="numeric" value="${product.cartonCost || 0}"></label>
       <label>Isi per Satuan Besar (Jumlah Satuan Kecil)<input id="productPackSize" name="packSize" inputmode="numeric" value="${product.packSize || 1}"></label>
-      <label>Harga Beli Satuan Kecil<input id="productUnitCost" name="cost" inputmode="numeric" value="${product.cost || 0}"></label>
-      <label>Harga Jual Ecer<input name="price" inputmode="numeric" required value="${product.price || 0}"></label>
+      <label>HPP / Harga Beli Satuan Kecil<input id="productUnitCost" name="cost" inputmode="numeric" value="${product.cost || 0}"></label>
+      <label>Harga Jual Ecer<input id="productRetailPrice" name="price" inputmode="numeric" required value="${product.price || 0}"></label>
       <p id="productCostHint" class="muted full" style="margin:0">
         Harga beli satuan kecil dihitung otomatis dari harga satuan besar ÷ isi.
       </p>
-      <label>Harga Grosir<input name="wholesalePrice" inputmode="numeric" value="${product.wholesalePrice || product.price || 0}"></label>
-      <label>Harga Reseller<input name="resellerPrice" inputmode="numeric" value="${product.resellerPrice || product.price || 0}"></label>
+
+      <section id="productProfitPreview" class="product-profit-preview full"></section>
+
+      <label>Harga Grosir<input id="productWholesalePrice" name="wholesalePrice" inputmode="numeric" value="${product.wholesalePrice || product.price || 0}"></label>
+      <label>Harga Reseller<input id="productResellerPrice" name="resellerPrice" inputmode="numeric" value="${product.resellerPrice || product.price || 0}"></label>
       <label>Stok<input name="stock" inputmode="numeric" value="${product.stock || 0}"></label>
       <label>Stok Minimum<input name="minStock" inputmode="numeric" value="${product.minStock ?? 5}"></label>
       <label class="full">
@@ -380,14 +555,73 @@ function productForm(ctx, product, onSave) {
         )}</textarea>
       </label>
     </form>`,
-    `<button value="cancel" class="secondary-button">Batal</button>
-     <button id="saveProduct" value="default" class="primary-button">Simpan</button>`
+    `<button type="button" id="cancelProduct" class="secondary-button">Batal</button>
+     <button type="button" id="saveProduct" class="primary-button">Simpan</button>`
   );
 
   const cartonInput = document.querySelector('#productCartonCost');
   const packInput = document.querySelector('#productPackSize');
   const unitCostInput = document.querySelector('#productUnitCost');
+  const retailInput = document.querySelector('#productRetailPrice');
+  const wholesaleInput = document.querySelector('#productWholesalePrice');
+  const resellerInput = document.querySelector('#productResellerPrice');
   const costHint = document.querySelector('#productCostHint');
+  const profitPreview = document.querySelector('#productProfitPreview');
+  const saveButton = document.querySelector('#saveProduct');
+  const cancelButton = document.querySelector('#cancelProduct');
+
+  let saving = false;
+
+  const updateProfitPreview = () => {
+    const info = profitInfo({
+      cost: unitCostInput.value,
+      price: retailInput.value,
+      wholesalePrice: wholesaleInput.value,
+      resellerPrice: resellerInput.value
+    });
+
+    if (info.hpp <= 0) {
+      profitPreview.innerHTML = `
+        <strong class="profit-missing">HPP belum diisi</strong>
+        <span>Masukkan HPP agar profit dapat dihitung.</span>
+      `;
+      return;
+    }
+
+    profitPreview.innerHTML = `
+      <div>
+        <span>HPP</span>
+        <strong>${rupiah(info.hpp)}</strong>
+      </div>
+      <div>
+        <span>Profit Ecer</span>
+        <strong class="${info.statusClass}">
+          ${rupiah(info.retailProfit)}
+        </strong>
+      </div>
+      <div>
+        <span>Margin Ecer</span>
+        <strong class="${info.statusClass}">
+          ${info.retailMargin.toFixed(1)}%
+        </strong>
+      </div>
+      <div>
+        <span>Profit Grosir</span>
+        <strong class="${info.wholesaleProfit < 0 ? 'profit-loss' : 'profit-good'}">
+          ${rupiah(info.wholesaleProfit)}
+        </strong>
+      </div>
+      <div>
+        <span>Profit Reseller</span>
+        <strong class="${info.resellerProfit < 0 ? 'profit-loss' : 'profit-good'}">
+          ${rupiah(info.resellerProfit)}
+        </strong>
+      </div>
+      <span class="master-profit-badge ${info.statusClass}">
+        ${escapeHTML(info.status)}
+      </span>
+    `;
+  };
 
   const recalculateCost = () => {
     const carton = number(cartonInput.value);
@@ -402,17 +636,34 @@ function productForm(ctx, product, onSave) {
       costHint.textContent =
         'Isi harga beli satuan besar untuk menghitung harga beli satuan kecil secara otomatis.';
     }
+
+    updateProfitPreview();
   };
 
   cartonInput.oninput = recalculateCost;
   packInput.oninput = recalculateCost;
-  if (number(cartonInput.value) > 0) recalculateCost();
+  unitCostInput.oninput = updateProfitPreview;
+  retailInput.oninput = updateProfitPreview;
+  wholesaleInput.oninput = updateProfitPreview;
+  resellerInput.oninput = updateProfitPreview;
 
-  document.querySelector('#saveProduct').onclick = async event => {
+  cancelButton.onclick = () => {
+    if (!saving) document.querySelector('#appDialog').close();
+  };
+
+  if (number(cartonInput.value) > 0) {
+    recalculateCost();
+  } else {
+    updateProfitPreview();
+  }
+
+  saveButton.onclick = async event => {
     event.preventDefault();
 
     const form = document.querySelector('#productForm');
     if (!form.reportValidity()) return;
+
+    if (saving) return;
 
     const raw = formObject(form);
     const pack = Math.max(1, number(raw.packSize));
@@ -421,11 +672,11 @@ function productForm(ctx, product, onSave) {
       ? Math.round(carton / pack)
       : number(raw.cost);
 
-    const ingredients = raw.ingredientsText
+    const ingredients = String(raw.ingredientsText || '')
       .split('\n')
-      .filter(Boolean)
+      .filter(line => line.trim())
       .map(line => {
-        const [name, qty, cost] = line.split('|');
+        const [name = '', qty = '', cost = ''] = line.split('|');
         return {
           name: name.trim(),
           qty: number(qty),
@@ -443,9 +694,34 @@ function productForm(ctx, product, onSave) {
       ingredients
     });
 
-    await onSave(item);
-    document.querySelector('#appDialog').close();
-    ctx.notify('Data barang disimpan');
+    saving = true;
+    saveButton.disabled = true;
+    cancelButton.disabled = true;
+    saveButton.textContent = 'Menyimpan…';
+
+    try {
+      await onSave(item);
+      document.querySelector('#appDialog').close();
+      ctx.notify('Data barang berhasil disimpan');
+    } catch (error) {
+      console.error('Gagal menyimpan Master Barang:', error);
+      ctx.notify(
+        error.message
+          || 'Data barang gagal disimpan. Periksa koneksi dan izin Firebase.',
+        'error'
+      );
+    } finally {
+      saving = false;
+
+      if (saveButton.isConnected) {
+        saveButton.disabled = false;
+        saveButton.textContent = 'Simpan';
+      }
+
+      if (cancelButton.isConnected) {
+        cancelButton.disabled = false;
+      }
+    }
   };
 }
 
