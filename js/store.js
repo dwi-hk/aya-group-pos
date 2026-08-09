@@ -701,6 +701,8 @@ function normalizeNewSale(raw, id, branchKey, branches) {
     invoice: String(raw.invoice || raw.id || id),
     branchId,
     branchName: raw.branchName || branchNameFor(branchId, branches),
+    _storageBranchKey: String(branchKey || branchId),
+    _storageId: String(id),
     cashierName: raw.cashierName || raw.kasir || 'Kasir',
     paymentMethod: String(
       raw.paymentMethod || raw.metodePembayaran || 'TUNAI'

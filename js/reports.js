@@ -1,5 +1,18 @@
-import { getOnce } from './store.js';
+import {
+  getOnce,
+  setData,
+  updateData,
+  removeData,
+  atomicStock,
+  invalidateDataCache
+} from './store.js';
+import { db } from './firebase-config.js';
+import {
+  ref,
+  remove
+} from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js';
 import { printReceipt } from './print.js';
+import { audit } from './audit.js';
 import {
   rupiah,
   escapeHTML,
@@ -71,6 +84,10 @@ function debounce(callback, delay = SEARCH_DELAY) {
 
 function text(value) {
   return String(value ?? '').trim();
+}
+
+function firebaseSafeKey(value) {
+  return text(value).replace(/[.#$\[\]\/]/g, '_');
 }
 
 function normalized(value) {
@@ -372,6 +389,7 @@ export async function renderReports(ctx) {
   let itemPage = 1;
   let noteSearch = '';
   let itemSearch = '';
+  const canCancelSale = ctx.user.role === 'owner';
 
   ctx.host.innerHTML = `
     <article class="card sales-report-filter sales-report-no-print">
@@ -850,6 +868,15 @@ export async function renderReports(ctx) {
                         >
                           Cetak Ulang
                         </button>
+                        ${canCancelSale ? `
+                          <button
+                            type="button"
+                            class="danger-button sales-report-small-button"
+                            data-sale-cancel="${globalIndex}"
+                          >
+                            Batalkan
+                          </button>
+                        ` : ''}
                       </td>
                     </tr>
                   `;
@@ -1158,6 +1185,280 @@ export async function renderReports(ctx) {
     if (activeTab === 'profit') renderProfit();
   };
 
+  const removeSaleFromMemory = invoice => {
+    const key = text(invoice).toUpperCase();
+
+    for (let index = allSales.length - 1; index >= 0; index--) {
+      const rowInvoice = text(
+        allSales[index].invoice
+        || allSales[index].clientTransactionId
+        || allSales[index].id
+      ).toUpperCase();
+
+      if (rowInvoice === key) {
+        allSales.splice(index, 1);
+      }
+    }
+  };
+
+  const cancelSale = async (sale, triggerButton = null) => {
+    if (!canCancelSale) {
+      ctx.notify(
+        'Pembatalan nota hanya dapat dilakukan oleh Owner.',
+        'error'
+      );
+      return;
+    }
+
+    const normalizedSale = normalizeReceiptSale(sale);
+    const invoice = text(normalizedSale.invoice);
+    const branchId = text(sale.branchId || ctx.branch.id);
+
+    if (!invoice || !branchId || branchId === 'all') {
+      ctx.notify(
+        'Nomor nota atau cabang transaksi tidak valid.',
+        'error'
+      );
+      return;
+    }
+
+    const itemSummary = normalizedSale.items
+      .map(item => `${item.name} +${item.qty}`)
+      .join('\n');
+
+    const approved = confirm(
+      `Batalkan nota dan kembalikan stok?\n\n`
+      + `Nota: ${invoice}\n`
+      + `Total: ${rupiah(normalizedSale.total)}\n`
+      + `Cabang: ${normalizedSale.branchName}\n\n`
+      + `Stok yang dikembalikan:\n${itemSummary}\n\n`
+      + `Tindakan ini permanen dan tidak dapat dibatalkan.`
+    );
+
+    if (!approved) return;
+
+    const typedInvoice = prompt(
+      `Untuk memastikan nota yang dipilih benar, ketik nomor nota berikut:\n${invoice}`
+    );
+
+    if (text(typedInvoice).toUpperCase() !== invoice.toUpperCase()) {
+      ctx.notify(
+        'Nomor nota tidak cocok. Pembatalan dibatalkan.',
+        'error'
+      );
+      return;
+    }
+
+    const originalText = triggerButton?.textContent || 'Batalkan';
+
+    if (triggerButton) {
+      triggerButton.disabled = true;
+      triggerButton.textContent = 'Memproses…';
+    }
+
+    const cancellationPath =
+      `saleCancellations/${firebaseSafeKey(invoice)}`;
+
+    try {
+      let cancellation = await getOnce(
+        cancellationPath,
+        { force: true }
+      ) || {};
+
+      if (cancellation.status === 'done') {
+        removeSaleFromMemory(invoice);
+        document.querySelector('#appDialog')?.close();
+        ctx.notify('Nota tersebut sudah pernah dibatalkan.');
+        applyFilters();
+        return;
+      }
+
+      if (!cancellation.invoice) {
+        await setData(cancellationPath, {
+          invoice,
+          branchId,
+          branchName: normalizedSale.branchName,
+          total: normalizedSale.total,
+          status: 'processing',
+          startedAt: Date.now(),
+          startedBy: ctx.user.name,
+          startedByUid: ctx.user.uid || '',
+          items: normalizedSale.items.map(item => ({
+            id: item.id,
+            name: item.name,
+            qty: item.qty,
+            unit: item.unit
+          }))
+        });
+
+        cancellation = {
+          invoice,
+          branchId,
+          status: 'processing',
+          restoredItems: {}
+        };
+      }
+
+      const restoredItems = cancellation.restoredItems || {};
+
+      /*
+       * Setiap baris stok diberi penanda setelah dikembalikan.
+       * Bila proses terputus, pengulangan tidak mengembalikan item yang
+       * sudah selesai untuk kedua kalinya.
+       */
+      for (let index = 0; index < normalizedSale.items.length; index++) {
+        const item = normalizedSale.items[index];
+        const itemId = text(item.id);
+        const qty = number(item.qty);
+        const markerKey = firebaseSafeKey(`${index}-${itemId}`);
+
+        if (!itemId || qty <= 0 || restoredItems[markerKey]) {
+          continue;
+        }
+
+        const stockResult = await atomicStock(
+          itemId,
+          qty,
+          branchId
+        );
+
+        await setData(
+          `${cancellationPath}/restoredItems/${markerKey}`,
+          {
+            itemId,
+            name: item.name,
+            qty,
+            status: stockResult?.queued
+              ? 'queued'
+              : 'restored',
+            restoredAt: Date.now()
+          }
+        );
+
+        restoredItems[markerKey] = true;
+      }
+
+      /*
+       * Hapus transaksi V2 memakai lokasi Firebase asli.
+       * Metadata lokasi ditambahkan oleh store.js v2.10.4.
+       */
+      const source = text(sale.source);
+      const storageBranchKey = text(
+        sale._storageBranchKey || branchId
+      );
+
+      const storageId = text(
+        sale._storageId
+        || (
+          !source.startsWith('legacy:')
+            ? sale.id
+            : ''
+        )
+      );
+
+      if (storageId) {
+        await removeData(
+          `sales/${storageBranchKey}/${storageId}`
+        );
+      }
+
+      /*
+       * Kasir lama membuat salinan di /transaksi menggunakan nomor nota.
+       * Hapus semua ID legacy yang mungkin merujuk ke nota yang sama.
+       */
+      const legacyIds = new Set([
+        text(sale.legacyRawId),
+        invoice
+      ].filter(Boolean));
+
+      for (const legacyId of legacyIds) {
+        await remove(
+          ref(db, `transaksi/${legacyId}`)
+        );
+      }
+
+      /*
+       * Bila nota hutang dibatalkan, catatan hutangnya ikut dibersihkan.
+       */
+      const debtsRaw = await getOnce('debts', { force: true });
+
+      for (const debt of toArray(debtsRaw)) {
+        if (
+          text(debt.invoice).toUpperCase()
+          === invoice.toUpperCase()
+        ) {
+          await removeData(`debts/${debt.id}`);
+        }
+      }
+
+      await updateData(cancellationPath, {
+        status: 'done',
+        completedAt: Date.now(),
+        completedBy: ctx.user.name,
+        completedByUid: ctx.user.uid || ''
+      });
+
+      try {
+        await audit('DELETE', 'SALE_CANCEL', {
+          invoice,
+          branchId,
+          total: normalizedSale.total,
+          items: normalizedSale.items.map(item => ({
+            id: item.id,
+            name: item.name,
+            qty: item.qty
+          })),
+          reason: 'Pembatalan nota dari laporan penjualan'
+        });
+      } catch (auditError) {
+        console.warn(
+          'Audit pembatalan nota gagal:',
+          auditError
+        );
+      }
+
+      invalidateDataCache([
+        'sales',
+        'debts',
+        'products',
+        'stockByBranch'
+      ]);
+
+      removeSaleFromMemory(invoice);
+      document.querySelector('#appDialog')?.close();
+
+      ctx.notify(
+        `Nota ${invoice} dibatalkan dan stok dikembalikan.`
+      );
+
+      applyFilters();
+    } catch (error) {
+      console.error('Pembatalan nota gagal:', error);
+
+      try {
+        await updateData(cancellationPath, {
+          status: 'error',
+          lastError: String(error.message || error),
+          lastErrorAt: Date.now()
+        });
+      } catch {
+        // Jangan menutupi pesan kesalahan utama.
+      }
+
+      ctx.notify(
+        `Pembatalan belum selesai: ${error.message || error}. `
+        + `Jangan mengubah stok secara manual. Tekan Batalkan lagi `
+        + `setelah koneksi/izin Firebase diperbaiki.`,
+        'error'
+      );
+    } finally {
+      if (triggerButton?.isConnected) {
+        triggerButton.disabled = false;
+        triggerButton.textContent = originalText;
+      }
+    }
+  };
+
   const showDetail = sale => {
     const normalizedSale = normalizeReceiptSale(sale);
     const hpp = saleCost(normalizedSale);
@@ -1248,6 +1549,15 @@ export async function renderReports(ctx) {
         <button type="button" id="salesDetailPrint" class="primary-button">
           Cetak Ulang Nota
         </button>
+        ${canCancelSale ? `
+          <button
+            type="button"
+            id="salesDetailCancel"
+            class="danger-button"
+          >
+            Batalkan Nota & Kembalikan Stok
+          </button>
+        ` : ''}
       `
     );
 
@@ -1262,6 +1572,14 @@ export async function renderReports(ctx) {
         ctx.notify(error.message || 'Nota gagal dicetak.', 'error');
       }
     };
+
+    const cancelButton =
+      document.querySelector('#salesDetailCancel');
+
+    if (cancelButton) {
+      cancelButton.onclick = () =>
+        cancelSale(sale, cancelButton);
+    }
   };
 
   const printTab = () => {
@@ -1521,13 +1839,16 @@ export async function renderReports(ctx) {
 
     const printButton = event.target.closest('[data-sale-print]');
     const detailButton = event.target.closest('[data-sale-detail]');
+    const cancelButton = event.target.closest('[data-sale-cancel]');
 
-    if (printButton || detailButton) {
+    if (printButton || detailButton || cancelButton) {
       const data = noteResults();
       const index = number(
         printButton
           ? printButton.dataset.salePrint
-          : detailButton.dataset.saleDetail
+          : detailButton
+            ? detailButton.dataset.saleDetail
+            : cancelButton.dataset.saleCancel
       );
 
       const sale = data[index];
@@ -1539,6 +1860,8 @@ export async function renderReports(ctx) {
         } catch (error) {
           ctx.notify(error.message || 'Nota gagal dicetak.', 'error');
         }
+      } else if (cancelButton) {
+        cancelSale(sale, cancelButton);
       } else {
         showDetail(sale);
       }
