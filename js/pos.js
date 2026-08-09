@@ -11,6 +11,7 @@ const SEARCH_DELAY = 180;
 let cart = [];
 let held = JSON.parse(localStorage.getItem('aya.held') || '[]');
 let products = [];
+let saleSaving = false;
 
 const saveHeld = () => localStorage.setItem('aya.held', JSON.stringify(held));
 
@@ -321,6 +322,11 @@ export async function renderPOS(ctx) {
   document.querySelector('#heldButton').onclick = () => showHeld(ctx, renderCart);
 
   document.querySelector('#saveSale').onclick = async () => {
+    if (saleSaving) {
+      ctx.notify('Transaksi sedang disimpan. Mohon tunggu.', 'error');
+      return;
+    }
+
     if (!cart.length) return ctx.notify('Tambahkan barang terlebih dahulu', 'error');
 
     const values = totals();
@@ -335,11 +341,15 @@ export async function renderPOS(ctx) {
       return ctx.notify('Nama pelanggan wajib untuk transaksi hutang', 'error');
     }
 
-    const invoice = `${ctx.branch.code || 'AYA'}-${new Date().toISOString().slice(0, 10).replaceAll('-', '')}-${String(Date.now()).slice(-6)}`;
+    const saveButton = document.querySelector('#saveSale');
+    const originalButtonText = saveButton.textContent;
+    const createdAt = Date.now();
+    const invoice = `${ctx.branch.code || 'AYA'}-${new Date(createdAt).toISOString().slice(0, 10).replaceAll('-', '')}-${String(createdAt).slice(-6)}`;
     const soldItems = cart.map(item => ({ ...item }));
 
     const sale = {
       invoice,
+      clientTransactionId: invoice,
       branchId: ctx.branch.id,
       branchName: ctx.branch.name,
       cashierId: ctx.user.uid || 'local',
@@ -352,52 +362,127 @@ export async function renderPOS(ctx) {
       paid: method === 'TUNAI' ? paid : values.total,
       change: method === 'TUNAI' ? Math.max(0, paid - values.total) : 0,
       status: 'queued',
-      createdAt: Date.now()
+      createdAt
     };
 
-    const result = await pushData(`sales/${ctx.branch.id}`, sale);
-    await mirrorLegacySale(sale);
+    saleSaving = true;
+    saveButton.disabled = true;
+    saveButton.textContent = 'Menyimpan…';
 
-    for (const item of soldItems) {
-      await atomicStock(item.id, -item.qty, ctx.branch.id);
-      const visibleProduct = productById.get(String(item.id));
-      if (visibleProduct) visibleProduct.stock = Math.max(0, number(visibleProduct.stock) - item.qty);
-    }
-
-    if (method === 'HUTANG') {
-      await pushData('debts', {
-        type: 'customer',
-        customerName: sale.customerName,
-        invoice,
-        amount: values.total,
-        remaining: values.total,
-        status: 'open',
-        dueDate: '',
-        branchId: ctx.branch.id
-      });
-    }
-
-    await audit('CREATE', 'POS', {
-      invoice,
-      total: values.total,
-      source: result.source
-    });
-
-    ctx.notify(
-      result.queued
-        ? 'Tersimpan lokal; akan sinkron saat online'
-        : 'Transaksi tersimpan'
-    );
+    let result;
+    let mainSaleSaved = false;
+    const warnings = [];
 
     try {
-      printReceipt(sale);
-    } catch (error) {
-      ctx.notify(error.message, 'error');
-    }
+      /*
+       * Penyimpanan utama dilakukan satu kali.
+       * Setelah berhasil, kegagalan proses tambahan tidak boleh membuat
+       * pengguna menekan Simpan lagi dan menggandakan transaksi.
+       */
+      result = await pushData(`sales/${ctx.branch.id}`, sale);
+      mainSaleSaved = true;
 
-    cart = [];
-    renderCart();
-    renderProducts();
+      try {
+        await mirrorLegacySale(sale);
+      } catch (error) {
+        console.warn('Salinan transaksi lama gagal:', error);
+        warnings.push('salinan database lama');
+      }
+
+      for (const item of soldItems) {
+        try {
+          await atomicStock(item.id, -item.qty, ctx.branch.id);
+
+          const visibleProduct = productById.get(String(item.id));
+          if (visibleProduct) {
+            visibleProduct.stock = Math.max(
+              0,
+              number(visibleProduct.stock) - item.qty
+            );
+          }
+        } catch (error) {
+          console.error('Pembaruan stok gagal:', item.id, error);
+          warnings.push(`stok ${item.name}`);
+        }
+      }
+
+      if (method === 'HUTANG') {
+        try {
+          await pushData('debts', {
+            type: 'customer',
+            customerName: sale.customerName,
+            invoice,
+            amount: values.total,
+            remaining: values.total,
+            status: 'open',
+            dueDate: '',
+            branchId: ctx.branch.id
+          });
+        } catch (error) {
+          console.error('Pencatatan hutang gagal:', error);
+          warnings.push('catatan hutang');
+        }
+      }
+
+      try {
+        await audit('CREATE', 'POS', {
+          invoice,
+          total: values.total,
+          source: result.source
+        });
+      } catch (error) {
+        console.warn('Audit POS gagal:', error);
+        warnings.push('audit');
+      }
+
+      ctx.notify(
+        result.queued
+          ? 'Tersimpan lokal; akan sinkron saat online'
+          : 'Transaksi tersimpan'
+      );
+
+      if (warnings.length) {
+        ctx.notify(
+          `Transaksi utama sudah tersimpan. Ada proses tambahan yang perlu diperiksa: ${[...new Set(warnings)].join(', ')}. Jangan simpan ulang transaksi ini.`,
+          'error'
+        );
+      }
+
+      try {
+        printReceipt(sale);
+      } catch (error) {
+        ctx.notify(
+          `${error.message || 'Nota gagal dicetak.'} Transaksi sudah tersimpan; jangan simpan ulang.`,
+          'error'
+        );
+      }
+
+      cart = [];
+      renderCart();
+      renderProducts();
+    } catch (error) {
+      console.error('Penyimpanan transaksi gagal:', error);
+
+      ctx.notify(
+        mainSaleSaved
+          ? 'Transaksi sudah tersimpan, tetapi proses lanjutan bermasalah. Jangan simpan ulang.'
+          : (error.message || 'Transaksi gagal disimpan.'),
+        'error'
+      );
+
+      if (mainSaleSaved) {
+        cart = [];
+        renderCart();
+        renderProducts();
+      }
+    } finally {
+      saleSaving = false;
+
+      if (saveButton?.isConnected) {
+        saveButton.disabled = false;
+        saveButton.textContent = originalButtonText;
+      }
+    }
   };
 
   document.querySelector('#scanButton').onclick = () => openScanner(ctx, code => {

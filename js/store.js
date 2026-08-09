@@ -742,6 +742,23 @@ function putNested(target, branchId, row) {
   target[branchId][row.id] = row;
 }
 
+function saleIdentity(row) {
+  const invoice = String(
+    row?.invoice
+    || row?.clientTransactionId
+    || ''
+  ).trim().toUpperCase();
+
+  /*
+   * Nomor nota dibuat unik untuk seluruh cabang.
+   * Menggunakan invoice saja mencegah salinan legacy dan V2 tampil dua kali
+   * ketika alias/ID cabangnya berbeda.
+   */
+  if (invoice) return `invoice:${invoice}`;
+
+  return `row:${row?.branchId || ''}|${row?.id || ''}`;
+}
+
 async function compositeSales() {
   const branches = branchCache.length
     ? branchCache
@@ -767,7 +784,7 @@ async function compositeSales() {
     const enriched = enrichSaleCosts(normalized);
 
     byIdentity.set(
-      `${enriched.branchId}|${enriched.invoice}`,
+      saleIdentity(enriched),
       enriched
     );
   });
@@ -778,8 +795,12 @@ async function compositeSales() {
         normalizeNewSale(row, id, branchKey, branches)
       );
 
+      /*
+       * Data V2 diproses setelah legacy sehingga, bila nomor notanya sama,
+       * versi V2 menjadi sumber utama.
+       */
       byIdentity.set(
-        `${normalized.branchId}|${normalized.invoice}`,
+        saleIdentity(normalized),
         normalized
       );
     }

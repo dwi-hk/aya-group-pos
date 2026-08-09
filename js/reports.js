@@ -23,6 +23,43 @@ function flatten(value) {
   );
 }
 
+function dedupeSales(sales) {
+  const byInvoice = new Map();
+  const withoutInvoice = [];
+
+  for (const sale of sales) {
+    const invoice = text(
+      sale.invoice
+      || sale.clientTransactionId
+      || ''
+    ).toUpperCase();
+
+    if (!invoice) {
+      withoutInvoice.push(sale);
+      continue;
+    }
+
+    const existing = byInvoice.get(invoice);
+    const currentIsV2 = !String(sale.source || '')
+      .startsWith('legacy:');
+    const existingIsV2 = existing
+      && !String(existing.source || '').startsWith('legacy:');
+
+    /*
+     * Laporan menjadi lapisan pengaman kedua:
+     * satu nomor nota hanya dihitung satu kali dan data V2 diprioritaskan.
+     */
+    if (!existing || currentIsV2 || !existingIsV2) {
+      byInvoice.set(invoice, sale);
+    }
+  }
+
+  return [
+    ...byInvoice.values(),
+    ...withoutInvoice
+  ];
+}
+
 function debounce(callback, delay = SEARCH_DELAY) {
   let timer;
 
@@ -303,7 +340,9 @@ export async function renderReports(ctx) {
    * Tidak membaca purchases, operations, capital, atau products.
    */
   const salesRaw = await getOnce('sales');
-  const allSales = flatten(salesRaw);
+  const flattenedSales = flatten(salesRaw);
+  const allSales = dedupeSales(flattenedSales);
+  const duplicateRowsIgnored = flattenedSales.length - allSales.length;
 
   const cashiers = [...new Set(
     allSales.map(sale => sale.cashierName).filter(Boolean)
@@ -341,6 +380,9 @@ export async function renderReports(ctx) {
           <h2>Laporan Penjualan</h2>
           <p class="muted">
             Ringkasan omzet, nota, barang terjual, dan laba kotor penjualan.
+            ${duplicateRowsIgnored
+              ? `<br><strong>${duplicateRowsIgnored} salinan nota ganda diabaikan otomatis.</strong>`
+              : ''}
           </p>
         </div>
 
