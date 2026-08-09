@@ -1,4 +1,11 @@
-import { saveProduct, setData, getOnce, pushData, stockForBranch } from './store.js';
+import {
+  saveProduct,
+  updateProductCost,
+  setData,
+  getOnce,
+  pushData,
+  stockForBranch
+} from './store.js';
 import { db } from './firebase-config.js';
 import {
   ref,
@@ -448,7 +455,7 @@ export async function renderMaster(ctx) {
             ` : ''}
             <button id="exportProducts" class="secondary-button">Export CSV</button>
             <label class="secondary-button" style="display:inline-flex;cursor:pointer">
-              Import CSV
+              <span id="importProductsLabel">Import CSV</span>
               <input id="importProducts" type="file" accept=".csv" hidden>
             </label>
             <button id="addProduct" class="primary-button">+ Barang</button>
@@ -700,39 +707,283 @@ export async function renderMaster(ctx) {
       );
     };
 
-    document.querySelector('#importProducts').onchange = event => importCSV(
-      event.target.files[0],
-      async rows => {
-        for (const row of rows) {
-          const id = row.id || uid('product');
-          const product = normalizeRow({
-            ...row,
-            id,
-            branchIds: ctx.branch.id === 'all' ? [] : [ctx.branch.id],
-            stockByBranch: ctx.branch.id === 'all'
-              ? {}
-              : {
-                  [ctx.branch.id]: (
-                    ctx.branch.id === INITIAL_STOCK_BRANCH_ID
-                    && String(row.stock ?? '').trim() === ''
-                  )
-                    ? INITIAL_STOCK_VALUE
-                    : number(row.stock)
-                },
-            stock: (
-              ctx.branch.id === INITIAL_STOCK_BRANCH_ID
-              && String(row.stock ?? '').trim() === ''
-            )
-              ? INITIAL_STOCK_VALUE
-              : number(row.stock)
-          });
+    const importInput = document.querySelector('#importProducts');
+    const importLabel = document.querySelector('#importProductsLabel');
 
-          await saveProduct(product);
+    importInput.onchange = event => importCSV(
+      event.target.files[0],
+      async (rows, headers) => {
+        if (!rows.length) {
+          ctx.notify('File CSV tidak memiliki data.', 'error');
+          return;
         }
 
-        await reloadProducts();
-        draw();
-        ctx.notify(`${rows.length} barang diimpor`);
+        if (!navigator.onLine) {
+          ctx.notify(
+            'Import HPP harus dilakukan saat perangkat online.',
+            'error'
+          );
+          return;
+        }
+
+        importInput.disabled = true;
+        importLabel.textContent = 'Memeriksa CSV…';
+
+        try {
+          /*
+           * Ambil data terbaru agar keputusan "HPP kosong" tidak memakai
+           * cache lama dari sebelum pengguna mengedit barang.
+           */
+          invalidateProductCache();
+          allProducts = await getCachedProducts({ force: true });
+          applyBranch();
+
+          const existingById = new Map(
+            allProducts.map(product => [
+              String(product.id),
+              product
+            ])
+          );
+
+          const byNameCategory = new Map();
+
+          for (const product of allProducts) {
+            const key = [
+              String(product.name || '').trim().toLowerCase(),
+              String(product.category || '').trim().toLowerCase()
+            ].join('|');
+
+            if (!byNameCategory.has(key)) {
+              byNameCategory.set(key, []);
+            }
+
+            byNameCategory.get(key).push(product);
+          }
+
+          const hppMode = headers.includes('hpp');
+
+          if (hppMode) {
+            const planned = [];
+            let protectedCount = 0;
+            let zeroInFile = 0;
+            let notFoundCount = 0;
+            let ambiguousCount = 0;
+
+            for (const row of rows) {
+              const importedHpp = number(row.hpp);
+
+              if (importedHpp <= 0) {
+                zeroInFile++;
+                continue;
+              }
+
+              let existing = row.id
+                ? existingById.get(String(row.id))
+                : null;
+
+              /*
+               * Cadangan untuk CSV lama yang ID-nya kosong:
+               * nama + kategori hanya dipakai bila hasilnya tepat satu.
+               * Import HPP tidak pernah membuat barang baru.
+               */
+              if (!existing) {
+                const key = [
+                  String(row.name || '').trim().toLowerCase(),
+                  String(row.category || '').trim().toLowerCase()
+                ].join('|');
+
+                const matches = byNameCategory.get(key) || [];
+
+                if (matches.length === 1) {
+                  existing = matches[0];
+                } else if (matches.length > 1) {
+                  ambiguousCount++;
+                  continue;
+                }
+              }
+
+              if (!existing) {
+                notFoundCount++;
+                continue;
+              }
+
+              if (number(existing.cost) > 0) {
+                protectedCount++;
+                continue;
+              }
+
+              planned.push({
+                existing,
+                importedHpp
+              });
+            }
+
+            if (!planned.length) {
+              ctx.notify(
+                `Tidak ada HPP kosong yang perlu diperbarui. `
+                + `${protectedCount} HPP lama dilindungi; `
+                + `${notFoundCount} ID tidak ditemukan.`,
+                'error'
+              );
+              return;
+            }
+
+            const approved = confirm(
+              `Import HPP Saja\n\n`
+              + `HPP kosong yang akan diisi: ${planned.length}\n`
+              + `HPP lama yang dilindungi: ${protectedCount}\n`
+              + `HPP 0 di dalam CSV: ${zeroInFile}\n`
+              + `ID tidak ditemukan: ${notFoundCount}\n`
+              + `Nama ganda/ambigu: ${ambiguousCount}\n\n`
+              + `Nama, harga jual, stok, kategori, komposisi, dan bundle `
+              + `tidak akan diubah. Tidak ada barang baru yang dibuat.\n\n`
+              + `Lanjutkan?`
+            );
+
+            if (!approved) return;
+
+            let updatedCount = 0;
+
+            for (let index = 0; index < planned.length; index++) {
+              const { existing, importedHpp } = planned[index];
+
+              importLabel.textContent =
+                `Mengisi HPP ${index + 1}/${planned.length}…`;
+
+              /*
+               * Mode HPP hanya mengubah field cost/HPP. Harga, stok,
+               * komposisi, bundle, dan data produk lain tidak disentuh.
+               */
+              await updateProductCost(
+                existing.id,
+                importedHpp
+              );
+
+              existing.cost = importedHpp;
+              updatedCount++;
+            }
+
+            try {
+              await audit('UPDATE', 'IMPORT_HPP_CSV', {
+                branchId: ctx.branch.id,
+                updatedCount,
+                protectedCount,
+                notFoundCount,
+                ambiguousCount,
+                mode: 'hpp-only'
+              });
+            } catch (auditError) {
+              console.warn('Audit Import HPP gagal:', auditError);
+            }
+
+            await reloadProducts();
+            draw();
+
+            ctx.notify(
+              `${updatedCount} HPP kosong berhasil diisi. `
+              + `${protectedCount} HPP lama tidak diubah.`
+            );
+
+            return;
+          }
+
+          /*
+           * Mode CSV umum:
+           * data lama digabung dahulu agar ingredients, bundle,
+           * stockByBranch, dan metadata lain tidak terhapus.
+           */
+          let importedCount = 0;
+          let addedCount = 0;
+
+          for (let index = 0; index < rows.length; index++) {
+            const row = rows[index];
+            const id = String(row.id || uid('product'));
+            const existing = existingById.get(id) || null;
+
+            const {
+              hpp,
+              profitEcer,
+              marginEcerPersen,
+              profitGrosir,
+              profitReseller,
+              profitStatus,
+              ...editableRow
+            } = row;
+
+            const importedCost = number(
+              String(editableRow.cost ?? '').trim() !== ''
+                ? editableRow.cost
+                : hpp
+            );
+
+            const rowStockBlank =
+              String(editableRow.stock ?? '').trim() === '';
+
+            const currentBranchStock = existing
+              ? stockForBranch(existing, ctx.branch.id)
+              : 0;
+
+            const nextStock = rowStockBlank
+              ? (
+                  existing
+                    ? currentBranchStock
+                    : ctx.branch.id === INITIAL_STOCK_BRANCH_ID
+                      ? INITIAL_STOCK_VALUE
+                      : 0
+                )
+              : number(editableRow.stock);
+
+            const product = normalizeRow({
+              ...(existing || {}),
+              ...editableRow,
+              id,
+              cost: importedCost > 0
+                ? importedCost
+                : number(existing?.cost),
+              branchIds: existing?.branchIds?.length
+                ? existing.branchIds
+                : ctx.branch.id === 'all'
+                  ? []
+                  : [ctx.branch.id],
+              stockByBranch: ctx.branch.id === 'all'
+                ? (existing?.stockByBranch || {})
+                : {
+                    ...(existing?.stockByBranch || {}),
+                    [ctx.branch.id]: nextStock
+                  },
+              stock: nextStock
+            });
+
+            importLabel.textContent =
+              `Mengimpor ${index + 1}/${rows.length}…`;
+
+            await saveProduct(product);
+
+            if (!existing) addedCount++;
+            importedCount++;
+          }
+
+          await reloadProducts();
+          draw();
+
+          ctx.notify(
+            `${importedCount} barang diproses; `
+            + `${addedCount} barang baru ditambahkan.`
+          );
+        } catch (error) {
+          console.error('Import CSV gagal:', error);
+          ctx.notify(
+            error.message || 'Import CSV gagal.',
+            'error'
+          );
+        } finally {
+          importInput.disabled = false;
+          importInput.value = '';
+
+          if (importLabel?.isConnected) {
+            importLabel.textContent = 'Import CSV';
+          }
+        }
       }
     );
   };
@@ -748,7 +999,13 @@ function normalizeRow(product) {
     name: product.name || 'Barang baru',
     category: product.category || 'Lainnya',
     barcode: product.barcode || '',
-    cost: number(product.cost),
+    cost: number(
+      String(product.cost ?? '').trim() !== ''
+        ? product.cost
+        : String(product.hpp ?? '').trim() !== ''
+          ? product.hpp
+          : product.hargaBeli
+    ),
     price: number(product.price),
     wholesalePrice: number(product.wholesalePrice || product.price),
     resellerPrice: number(product.resellerPrice || product.price),
@@ -978,14 +1235,34 @@ async function importCSV(file, done) {
   if (!file) return;
 
   const text = await file.text();
-  const lines = text.split(/\r?\n/).filter(Boolean);
-  const headers = parseLine(lines.shift());
+  const lines = text
+    .split(/\r?\n/)
+    .filter(line => line.trim());
+
+  if (!lines.length) {
+    await done([], []);
+    return;
+  }
+
+  /*
+   * Hapus UTF-8 BOM dari header pertama.
+   * Tanpa ini "id" dapat terbaca sebagai "﻿id" dan gagal mencocokkan
+   * produk yang sudah ada.
+   */
+  const headers = parseLine(lines.shift())
+    .map((header, index) => String(header || '')
+      .replace(index === 0 ? /^\uFEFF/ : /^$/, '')
+      .trim()
+    );
 
   const rows = lines.map(line => Object.fromEntries(
-    parseLine(line).map((value, index) => [headers[index], value])
+    parseLine(line).map((value, index) => [
+      headers[index],
+      value
+    ])
   ));
 
-  await done(rows);
+  await done(rows, headers);
 }
 
 function parseLine(line) {
