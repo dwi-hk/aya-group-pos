@@ -1,4 +1,4 @@
-const CACHE = 'aya-pos-v2.10.10-payment-field';
+const CACHE = 'aya-pos-v2.10.12-final-kasir';
 
 const ASSETS = [
   './',
@@ -24,7 +24,7 @@ const ASSETS = [
   './js/menu-data.js',
   './js/dashboard.js',
   './js/pos.js',
-  './js/payment-method-v2.10.10.js',
+  './js/pos-ui-v2.10.12.js',
   './js/master.js',
   './js/branch.js',
   './js/transaction.js',
