@@ -1,0 +1,57 @@
+<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AYA Cleanup DAPUR AYA</title>
+<style>
+body{font-family:system-ui;background:#111;color:#fff;margin:0}main{max-width:900px;margin:auto;padding:22px}.card{background:#1b1b1b;border:1px solid #333;border-radius:14px;padding:18px;margin:14px 0}.warn{border-left:5px solid #d33}input{width:100%;padding:11px;margin:5px 0 10px;background:#111;color:#fff;border:1px solid #444;border-radius:9px}button{padding:11px 15px;border:0;border-radius:9px;font-weight:700;margin:5px}.p{background:#ff7a00}.s{background:#333;color:#fff}.d{background:#c33;color:#fff}.hidden{display:none}pre{background:#090909;padding:12px;max-height:380px;overflow:auto;white-space:pre-wrap}.muted{color:#aaa}
+</style></head><body><main>
+<section class="card warn"><h1>🧹 Hapus DAPUR AYA SEMBAKO</h1><p>Target: <b>dapur-aya-sembako</b><br>Cabang dilindungi: <b>aya-seblak-angkringan</b></p></section>
+<section class="card"><h2>1. Login Owner</h2><input id="email" type="email" placeholder="Email Firebase"><input id="pass" type="password" placeholder="Password"><button class="p" id="login">Login & Preview</button><p id="status" class="muted"></p></section>
+<section class="card hidden" id="preview"><h2>2. Preview — belum menghapus</h2><pre id="txt"></pre><button class="s" id="backup">💾 Download Backup JSON</button></section>
+<section class="card warn hidden" id="danger"><h2>3. Hapus Permanen</h2><p>Ketik persis <b>HAPUS DAPUR AYA</b></p><input id="confirm"><button class="d" id="del" disabled>🗑️ Hapus DAPUR AYA</button><p id="delStatus" class="muted"></p></section>
+<section class="card hidden" id="done"><h2>✅ Selesai</h2><p>Data DAPUR AYA yang teridentifikasi telah dihapus. AYA SEBLAK DAN ANGKRINGAN masih terdeteksi.</p></section>
+<script type="module">
+import{initializeApp}from'https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js';
+import{getDatabase,ref,get,update}from'https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js';
+import{getAuth,signInWithEmailAndPassword,signOut}from'https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js';
+const cfg={apiKey:'AIzaSyCx0u4ka3lhjiPm84hI8U7v37GNusCvPaE',authDomain:'kasir-aya-group-e6fb4.firebaseapp.com',databaseURL:'https://kasir-aya-group-e6fb4-default-rtdb.asia-southeast1.firebasedatabase.app',projectId:'kasir-aya-group-e6fb4',storageBucket:'kasir-aya-group-e6fb4.firebasestorage.app',messagingSenderId:'654765768336',appId:'1:654765768336:web:7fb865aaf00e371de36215'};
+const TARGET='dapur-aya-sembako',TNAME='DAPUR AYA SEMBAKO',SAFE='aya-seblak-angkringan',SNAME='AYA SEBLAK DAN ANGKRINGAN',ROOT='ayaGroupV2';
+const app=initializeApp(cfg),db=getDatabase(app),auth=getAuth(app),$=s=>document.querySelector(s),O=v=>v&&typeof v==='object'?v:{},E=v=>Object.entries(O(v)),S=v=>String(v??'').trim(),U=v=>S(v).toUpperCase();
+let plan=null,backed=false;
+async function R(p){const x=await get(ref(db,p));return x.exists()?x.val():null}
+function isD(r,k=''){return S(r?.id||r?.branchId||k).toLowerCase()===TARGET||U(r?.name||r?.nama||r?.branchName||r?.cabang)===TNAME}
+function branchMatch(r){return S(r?.branchId||r?.cabangId).toLowerCase()===TARGET||U(r?.branchName||r?.cabang)===TNAME}
+function dl(name,val){const b=new Blob([JSON.stringify(val,null,2)],{type:'application/json'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)}
+async function makePlan(){
+ const [branches,products,stocks,sales,ops,purch,debt,capital,inventory,lbranches,lstocks,lsales,lops]=await Promise.all([
+  R(`${ROOT}/branches`),R(`${ROOT}/products`),R(`${ROOT}/stockByBranch`),R(`${ROOT}/sales`),R(`${ROOT}/operations`),R(`${ROOT}/purchases`),R(`${ROOT}/debts`),R(`${ROOT}/capital`),R(`${ROOT}/inventory`),R('cabang'),R('stok_cabang'),R('transaksi'),R('pengeluaran')
+ ]);
+ const safePresent=Boolean(O(branches)[SAFE])||E(lbranches).some(([k,r])=>S(r?.id||r?.branchId||k).toLowerCase()===SAFE||U(r?.name||r?.nama)===SNAME);
+ if(!safePresent)throw Error('Cabang AYA SEBLAK DAN ANGKRINGAN tidak terdeteksi. Penghapusan dibatalkan.');
+ const up={},bak={},rep={deletedProducts:0,detachedProducts:0,sales:0,legacySales:0,skipped:[]};
+ const put=(p,v)=>{bak[p]=v;up[p]=null};
+ if(O(branches)[TARGET]!==undefined)put(`${ROOT}/branches/${TARGET}`,O(branches)[TARGET]);
+ if(O(stocks)[TARGET]!==undefined)put(`${ROOT}/stockByBranch/${TARGET}`,O(stocks)[TARGET]);
+ if(O(sales)[TARGET]!==undefined){put(`${ROOT}/sales/${TARGET}`,O(sales)[TARGET]);rep.sales=Object.keys(O(sales)[TARGET]||{}).length}
+ for(const[id,p]of E(products)){
+  const ids=Array.isArray(p?.branchIds)?p.branchIds.map(x=>S(x).toLowerCase()).filter(Boolean):[];
+  if(!ids.includes(TARGET))continue;
+  if(ids.includes(SAFE)){bak[`${ROOT}/products/${id}`]=p;up[`${ROOT}/products/${id}/branchIds`]=ids.filter(x=>x!==TARGET);up[`${ROOT}/products/${id}/stockByBranch/${TARGET}`]=null;rep.detachedProducts++;continue}
+  if(ids.length===1){put(`${ROOT}/products/${id}`,p);rep.deletedProducts++}else rep.skipped.push(`products/${id} ${p?.name||p?.nama||''}`);
+ }
+ const flat=(c,n)=>{for(const[id,r]of E(c))if(branchMatch(r))put(`${ROOT}/${n}/${id}`,r)};
+ flat(ops,'operations');flat(purch,'purchases');flat(debt,'debts');flat(capital,'capital');flat(inventory,'inventory');
+ for(const[k,r]of E(lbranches))if(isD(r,k))put(`cabang/${k}`,r);
+ for(const[k,r]of E(lstocks))if(S(k).toLowerCase()===TARGET||U(k)===TNAME||isD(r,k))put(`stok_cabang/${k}`,r);
+ for(const[id,r]of E(lsales))if(branchMatch(r)){put(`transaksi/${id}`,r);rep.legacySales++}
+ for(const[id,r]of E(lops))if(branchMatch(r))put(`pengeluaran/${id}`,r);
+ for(const p of Object.keys(up))if(p===`${ROOT}/branches/${SAFE}`||p.startsWith(`${ROOT}/stockByBranch/${SAFE}`)||p.startsWith(`${ROOT}/sales/${SAFE}`))throw Error('Pengaman aktif: rencana menyentuh cabang AYA.');
+ return{up,bak,rep};
+}
+function show(){
+ const r=plan.rep,paths=Object.keys(plan.up).sort();
+ $('#txt').textContent=`AYA SEBLAK dilindungi: YA\nProduk DAPUR dihapus: ${r.deletedProducts}\nProduk bersama hanya dilepas dari DAPUR: ${r.detachedProducts}\nTransaksi DAPUR V2: ${r.sales}\nTransaksi DAPUR legacy: ${r.legacySales}\nData ambigu dilewati: ${r.skipped.length}\n\nPATH YANG AKAN DIUBAH/DIHAPUS (${paths.length}):\n${paths.join('\n')}\n\nAMBIGU/TIDAK DIHAPUS:\n${r.skipped.join('\n')||'Tidak ada'}`;
+}
+$('#login').onclick=async()=>{try{$('#status').textContent='Login dan membaca database…';const c=await signInWithEmailAndPassword(auth,$('#email').value.trim(),$('#pass').value);const p=await R(`${ROOT}/users/${c.user.uid}`);if(S(p?.role).toLowerCase()!=='owner'){await signOut(auth);throw Error('Akun bukan Owner.')}plan=await makePlan();show();$('#preview').classList.remove('hidden');$('#danger').classList.remove('hidden');$('#status').textContent='Login Owner berhasil. Preview siap.'}catch(e){$('#status').textContent='Gagal: '+e.message}};
+$('#backup').onclick=()=>{if(!plan)return;dl(`BACKUP-DAPUR-AYA-${new Date().toISOString().replace(/[:.]/g,'-')}.json`,{createdAt:new Date().toISOString(),target:TARGET,protected:SAFE,report:plan.rep,data:plan.bak});backed=true;$('#delStatus').textContent='Backup selesai. Ketik konfirmasi.';validate()};
+function validate(){$('#del').disabled=!(backed&&U($('#confirm').value)==='HAPUS DAPUR AYA')}$('#confirm').oninput=validate;
+$('#del').onclick=async()=>{if(!plan||!backed||U($('#confirm').value)!=='HAPUS DAPUR AYA')return;if(!confirm('PERINGATAN TERAKHIR\\n\\nHapus permanen data DAPUR AYA SEMBAKO?'))return;try{$('#delStatus').textContent='Memeriksa ulang lalu menghapus…';const fresh=await makePlan();await update(ref(db),fresh.up);const check=await R(`${ROOT}/branches/${SAFE}`);if(!check)throw Error('Verifikasi AYA gagal. Periksa Firebase Console dan backup.');$('#done').classList.remove('hidden');$('#preview').classList.add('hidden');$('#danger').classList.add('hidden');await signOut(auth).catch(()=>{})}catch(e){$('#delStatus').textContent='Gagal: '+e.message}};
+</script></main></body></html>
