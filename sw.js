@@ -1,4 +1,4 @@
-const CACHE = 'aya-pos-v2.10.9-fix-import-hpp';
+const CACHE = 'aya-pos-v2.10.10-payment-field';
 
 const ASSETS = [
   './',
@@ -24,6 +24,7 @@ const ASSETS = [
   './js/menu-data.js',
   './js/dashboard.js',
   './js/pos.js',
+  './js/payment-method-v2.10.10.js',
   './js/master.js',
   './js/branch.js',
   './js/transaction.js',
