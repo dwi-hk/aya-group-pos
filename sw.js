@@ -1,4 +1,4 @@
-const CACHE = 'aya-pos-v2.11.1-absensi-gaji-detail';
+const CACHE = 'aya-pos-v2.11.2-modal-tambahan';
 
 const ASSETS = [
   './',
