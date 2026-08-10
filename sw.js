@@ -1,4 +1,4 @@
-const CACHE = 'aya-pos-v2.10.12-final-kasir';
+const CACHE = 'aya-pos-v2.10.13-held-detail';
 
 const ASSETS = [
   './',
@@ -24,7 +24,7 @@ const ASSETS = [
   './js/menu-data.js',
   './js/dashboard.js',
   './js/pos.js',
-  './js/pos-ui-v2.10.12.js',
+  './js/pos-ui-v2.10.13.js',
   './js/master.js',
   './js/branch.js',
   './js/transaction.js',
