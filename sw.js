@@ -1,4 +1,4 @@
-const CACHE = 'aya-pos-v2.11.0-scan-kulakan-laba-rugi';
+const CACHE = 'aya-pos-v2.11.1-absensi-gaji-detail';
 
 const ASSETS = [
   './',
@@ -26,6 +26,7 @@ const ASSETS = [
   './js/pos.js',
   './js/pos-ui-v2.10.14.js',
   './js/aya-online-v2.11.0.js',
+  './js/aya-online-v2.11.1-payroll.js',
   './js/master.js',
   './js/branch.js',
   './js/transaction.js',
