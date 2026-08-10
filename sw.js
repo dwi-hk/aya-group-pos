@@ -1,4 +1,4 @@
-const CACHE = 'aya-pos-v2.10.14-fix-resume-held';
+const CACHE = 'aya-pos-v2.11.0-scan-kulakan-laba-rugi';
 
 const ASSETS = [
   './',
@@ -25,6 +25,7 @@ const ASSETS = [
   './js/dashboard.js',
   './js/pos.js',
   './js/pos-ui-v2.10.14.js',
+  './js/aya-online-v2.11.0.js',
   './js/master.js',
   './js/branch.js',
   './js/transaction.js',
