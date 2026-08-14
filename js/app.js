@@ -11,7 +11,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js';
 import { setupPWA } from './pwa.js';
 import { renderDashboard } from './dashboard.js';
-import { renderPOS } from './pos.js';
+import { renderPOS } from './pos.js?v=2.14.1';
 import { renderMaster, renderDirectory } from './master.js';
 import { renderBranches, renderTransfers } from './branch.js';
 import {
@@ -21,10 +21,10 @@ import {
 } from './transaction.js';
 import {
   renderEmployees,
-  renderAttendance,
   renderCalculator,
   renderDocuments
 } from './backoffice.js';
+import { renderPayrollAttendance } from './payroll-v2.11.3.js?v=2.14.4';
 import { renderReports } from './reports.js';
 import { renderCashReport } from './cash.js';
 import { renderKitchen } from './kitchen.js';
@@ -148,11 +148,11 @@ const routes = {
   },
   attendance: {
     icon: '📅',
-    label: 'Absensi & Gaji',
-    title: 'Absensi Karyawan',
-    subtitle: 'Jam masuk, pulang, gaji, dan potongan kasbon',
+    label: 'Gaji & Kasbon',
+    title: 'Gaji & Kasbon',
+    subtitle: 'Absensi device, saldo berjalan, pembayaran, dan laporan',
     roles: ['owner', 'supervisor'],
-    render: renderAttendance
+    render: renderPayrollAttendance
   },
   operations: {
     icon: '🧮',

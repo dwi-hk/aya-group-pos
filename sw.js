@@ -1,4 +1,4 @@
-const CACHE = 'aya-pos-v2.11.2-modal-tambahan';
+const CACHE = 'aya-pos-v2.14.4-hapus-potong-kasbon';
 
 const ASSETS = [
   './',
@@ -12,6 +12,8 @@ const ASSETS = [
   './css/fixes-v2.6.css',
   './css/reports-v2.10.1.css',
   './css/master-profit-v2.10.6.css',
+  './css/kasir-gaji-v2.11.3.css',
+  './css/kasir-profesional-v2.12.0.css',
   './js/app.js',
   './js/aya-v2.6-fixes.js',
   './js/aya-v2.6.1-category-fix.js',
@@ -24,6 +26,7 @@ const ASSETS = [
   './js/menu-data.js',
   './js/dashboard.js',
   './js/pos.js',
+  './js/payroll-v2.11.3.js',
   './js/pos-ui-v2.10.14.js',
   './js/aya-online-v2.11.0.js',
   './js/aya-online-v2.11.1-payroll.js',

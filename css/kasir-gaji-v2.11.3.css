@@ -1,0 +1,551 @@
+.aya-pos-view{
+  color-scheme:dark;
+  padding:2px;
+  border-radius:18px;
+  background:#090909;
+}
+.aya-pos-view .card,
+.aya-pos-view .cart,
+.aya-pos-view .product-button,
+.aya-pos-view .cart-row,
+.aya-pos-view .empty-state{
+  border-color:#3b3b3b;
+  background:#181818;
+  color:#f7f7f7;
+}
+.aya-pos-view input,
+.aya-pos-view select,
+.aya-pos-view textarea,
+.aya-pos-view option{
+  border-color:#444;
+  background:#0f0f0f;
+  color:#fff;
+}
+.aya-pos-view .secondary-button{
+  border-color:#4a4a4a;
+  background:#202020;
+  color:#fff;
+}
+.aya-pos-view .primary-button,
+.aya-pos-view #holdButton,
+.aya-pos-view #heldButton{
+  border:1px solid #f57c00;
+  background:linear-gradient(135deg,#f57c00,#ff9d2f);
+  color:#17100a;
+  font-weight:900;
+}
+.aya-pos-view .product-button:hover{
+  border-color:#f57c00;
+  box-shadow:0 0 0 2px rgba(245,124,0,.15);
+}
+.aya-pos-view .product-button span,
+.aya-pos-view .summary-row.total,
+.aya-pos-view .badge{
+  color:#ff9d2f;
+}
+.aya-pos-view #paidField{
+  padding:10px;
+  border:1px solid rgba(245,124,0,.55);
+  border-radius:10px;
+  background:#1c1209;
+}
+
+.aya-payroll-view{
+  color-scheme:dark;
+  color:#f7f7f7;
+}
+.aya-payroll-head{
+  display:flex;
+  align-items:stretch;
+  justify-content:space-between;
+  gap:18px;
+  padding:18px;
+  border:1px solid #3b3b3b;
+  border-radius:16px;
+  background:linear-gradient(135deg,#111,#252525);
+}
+.aya-payroll-head h2{
+  margin:5px 0;
+  color:#fff;
+  font-size:1.55rem;
+}
+.aya-payroll-head p,
+.aya-card-title p{
+  margin:0;
+  color:#b7b7b7;
+}
+.aya-eyebrow{
+  color:#ff9d2f;
+  font-size:.7rem;
+  font-weight:900;
+  letter-spacing:.08em;
+}
+.aya-device-panel{
+  display:grid;
+  min-width:min(570px,56%);
+  grid-template-columns:1.2fr 1fr auto;
+  align-items:end;
+  gap:10px;
+  padding:12px;
+  border:1px solid rgba(245,124,0,.42);
+  border-radius:12px;
+  background:#0c0c0c;
+}
+.aya-device-panel>div{
+  display:grid;
+  gap:3px;
+}
+.aya-device-panel span,
+.aya-device-panel label{
+  color:#a7a7a7;
+  font-size:.68rem;
+  font-weight:900;
+}
+.aya-device-panel strong{
+  color:#fff;
+  font-size:.82rem;
+}
+.aya-device-panel small{
+  color:#ff9d2f;
+  font-size:.68rem;
+}
+.aya-device-panel input{
+  height:40px;
+}
+.aya-payroll-tabs{
+  display:flex;
+  gap:7px;
+  margin:13px 0;
+  overflow:auto;
+}
+.aya-payroll-tabs button{
+  flex:0 0 auto;
+  padding:10px 14px;
+  border:1px solid #414141;
+  border-radius:10px;
+  background:#181818;
+  color:#d8d8d8;
+  font-weight:900;
+  cursor:pointer;
+}
+.aya-payroll-tabs button.active{
+  border-color:#f57c00;
+  background:#f57c00;
+  color:#17100a;
+}
+.aya-payroll-metrics{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:10px;
+  margin-bottom:13px;
+}
+.aya-payroll-metrics article{
+  padding:14px;
+  border:1px solid #3b3b3b;
+  border-top:3px solid #f57c00;
+  border-radius:12px;
+  background:#181818;
+}
+.aya-payroll-metrics span{
+  display:block;
+  color:#a7a7a7;
+  font-size:.68rem;
+  font-weight:900;
+}
+.aya-payroll-metrics strong{
+  display:block;
+  margin-top:7px;
+  color:#ff9d2f;
+  font-size:1.2rem;
+}
+.aya-payroll-grid{
+  display:grid;
+  grid-template-columns:minmax(330px,.8fr) minmax(0,1.2fr);
+  gap:13px;
+  align-items:start;
+}
+.aya-payroll-card{
+  overflow:hidden;
+  border:1px solid #3b3b3b;
+  border-radius:14px;
+  background:#181818;
+  color:#f7f7f7;
+  box-shadow:0 12px 28px rgba(0,0,0,.24);
+}
+.aya-employee-report-filter{
+  display:grid;
+  gap:9px;
+  padding:12px 16px;
+  border-bottom:1px solid #383838;
+  background:#100d0a;
+}
+.aya-employee-report-filter>span{
+  color:#ff9d2f;
+  font-size:.68rem;
+  font-weight:900;
+  letter-spacing:.05em;
+}
+.aya-employee-report-filter>div{
+  display:flex;
+  flex-wrap:wrap;
+  gap:7px;
+}
+.aya-employee-report-filter button{
+  min-height:36px;
+  padding:8px 13px;
+  border:1px solid #4b4b4b;
+  border-radius:9px;
+  background:#202020;
+  color:#fff;
+  font-weight:900;
+  cursor:pointer;
+}
+.aya-employee-report-filter button.active{
+  border-color:#f57c00;
+  background:#f57c00;
+  color:#17100a;
+}
+.aya-card-title{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:15px 16px;
+  border-bottom:1px solid #383838;
+  background:#151515;
+}
+.aya-card-title h3{
+  margin:3px 0;
+  color:#fff;
+}
+.aya-payroll-form{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:11px;
+  padding-bottom:16px;
+}
+.aya-payroll-form>.aya-card-title,
+.aya-payroll-form>.aya-stamp{
+  grid-column:1/-1;
+}
+.aya-payroll-form>label,
+.aya-payroll-form>button,
+.aya-payroll-form>.aya-wage-preview{
+  margin-inline:16px;
+}
+.aya-payroll-form label{
+  color:#d0d0d0;
+  font-size:.72rem;
+  font-weight:900;
+  text-transform:uppercase;
+}
+.aya-payroll-form input,
+.aya-payroll-form select,
+.aya-payroll-view input,
+.aya-payroll-view select,
+.aya-payroll-view option{
+  border-color:#444;
+  background:#0f0f0f;
+  color:#fff;
+}
+.aya-payroll-form .full{
+  grid-column:1/-1;
+}
+.aya-payroll-form input[readonly]{
+  cursor:not-allowed;
+  border-color:#6a3b12;
+  background:#15100b;
+  color:#ff9d2f;
+  font-weight:900;
+  user-select:none;
+}
+.aya-attendance-live{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin:0 16px;
+  padding:11px 12px;
+  border:1px solid #4b4b4b;
+  border-radius:10px;
+  background:#111;
+}
+.aya-attendance-live div{
+  display:grid;
+  gap:3px;
+}
+.aya-attendance-live span,
+.aya-attendance-live small{
+  color:#9c9c9c;
+  font-size:.64rem;
+  font-weight:800;
+}
+.aya-attendance-live strong{
+  color:#ff9d2f;
+  font-size:.8rem;
+}
+.aya-attendance-live[data-state="working"]{
+  border-color:#d87516;
+  background:#211408;
+}
+.aya-attendance-live[data-state="completed"]{
+  border-color:#287958;
+  background:#0f2119;
+}
+.aya-attendance-live[data-state="completed"] strong{
+  color:#55dfa8;
+}
+.aya-daily-payroll-summary{
+  display:grid;
+  grid-template-columns:minmax(0,1.55fr) minmax(210px,.45fr);
+  gap:10px;
+  margin:0 16px;
+  padding:11px;
+  border:1px solid rgba(245,124,0,.48);
+  border-radius:11px;
+  background:#0d0d0d;
+}
+.aya-daily-total-list{
+  display:grid;
+  gap:7px;
+}
+.aya-daily-total-list article{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  gap:12px;
+  padding:9px 10px;
+  border:1px solid #363636;
+  border-radius:9px;
+  background:#181818;
+}
+.aya-daily-total-list article div{
+  display:grid;
+  gap:2px;
+}
+.aya-daily-total-list span,
+.aya-latest-cash-advance span{
+  color:#fff;
+  font-size:.72rem;
+  font-weight:900;
+  text-transform:uppercase;
+}
+.aya-daily-total-list small{
+  color:#9e9e9e;
+  font-size:.66rem;
+  font-style:italic;
+  font-weight:700;
+  text-transform:none;
+}
+.aya-daily-total-list strong{
+  color:#ff9d2f;
+  font-size:1rem;
+  white-space:nowrap;
+}
+.aya-daily-total-list .aya-daily-net-row{
+  border-color:#f57c00;
+  background:#1c1209;
+}
+.aya-daily-net-row strong{
+  font-size:1.15rem;
+}
+.aya-latest-cash-advance{
+  display:grid;
+  align-content:center;
+  gap:7px;
+  padding:13px;
+  border:1px solid #5f3611;
+  border-radius:10px;
+  background:#1b1108;
+  text-align:center;
+}
+.aya-latest-cash-advance span{
+  color:#b8b8b8;
+  font-size:.66rem;
+}
+.aya-latest-cash-advance strong{
+  padding:8px;
+  border:1px solid #6a3b12;
+  border-radius:8px;
+  background:#100d0a;
+  color:#ff9d2f;
+  font-size:1rem;
+}
+.aya-stamp{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+  margin:0 16px;
+  padding:11px;
+  border:1px solid rgba(245,124,0,.45);
+  border-radius:10px;
+  background:#100d0a;
+}
+.aya-stamp div{
+  display:grid;
+  gap:3px;
+}
+.aya-stamp span{
+  color:#999;
+  font-size:.62rem;
+  font-weight:900;
+}
+.aya-stamp strong{
+  color:#ff9d2f;
+  font-size:.78rem;
+}
+.aya-wage-preview{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:12px;
+  border:1px solid rgba(245,124,0,.48);
+  border-radius:10px;
+  background:#1c1209;
+}
+.aya-wage-preview span{
+  color:#ff9d2f;
+  font-size:.7rem;
+  font-weight:900;
+}
+.aya-wage-preview strong{
+  color:#ff9d2f;
+  font-size:1.2rem;
+}
+.aya-payroll-table{
+  min-width:880px;
+  background:#181818;
+  color:#eee;
+}
+.aya-payroll-table th{
+  background:#222;
+  color:#ff9d2f;
+  font-size:.68rem;
+}
+.aya-payroll-table td{
+  background:#181818;
+  color:#eee;
+}
+.aya-payroll-table tr:hover td{
+  background:#1d1d1d;
+}
+.aya-payroll-report-table{
+  min-width:1420px;
+}
+.aya-attendance-report-table{
+  min-width:1040px;
+}
+.aya-attendance-report-table .aya-attendance-action-column{
+  position:sticky;
+  left:0;
+  z-index:2;
+  min-width:142px;
+  border-right:2px solid #6a3b12;
+  background:#222;
+  text-align:center;
+}
+.aya-attendance-report-table td.aya-attendance-action-column{
+  z-index:1;
+  background:#181818;
+}
+.aya-attendance-report-table tr:hover td.aya-attendance-action-column{
+  background:#1d1d1d;
+}
+.aya-payroll-report-table .aya-report-action-column{
+  position:sticky;
+  left:0;
+  z-index:2;
+  min-width:142px;
+  border-right:2px solid #6a3b12;
+  background:#222;
+  text-align:center;
+}
+.aya-payroll-report-table td.aya-report-action-column{
+  z-index:1;
+  background:#181818;
+}
+.aya-payroll-report-table tr:hover td.aya-report-action-column{
+  background:#1d1d1d;
+}
+.aya-report-actions{
+  display:flex;
+  gap:7px;
+  justify-content:center;
+  white-space:nowrap;
+}
+.aya-report-actions button{
+  min-height:34px;
+  padding:7px 11px;
+}
+.aya-payroll-view .danger-button{
+  border-color:#8e2b23;
+  background:#351512;
+  color:#ff8f86;
+  font-weight:900;
+}
+.aya-orange{
+  color:#ff9d2f;
+}
+.aya-empty{
+  padding:32px!important;
+  color:#999!important;
+  text-align:center!important;
+}
+.aya-payroll-view .primary-button{
+  border-color:#f57c00;
+  background:linear-gradient(135deg,#f57c00,#ff9d2f);
+  color:#17100a;
+  font-weight:900;
+}
+.aya-payroll-view .secondary-button{
+  border-color:#444;
+  background:#222;
+  color:#fff;
+}
+
+@media(max-width:1100px){
+  .aya-payroll-head{
+    flex-direction:column;
+  }
+  .aya-device-panel{
+    width:100%;
+    min-width:0;
+  }
+  .aya-payroll-metrics{
+    grid-template-columns:repeat(2,1fr);
+  }
+  .aya-payroll-grid{
+    grid-template-columns:1fr;
+  }
+}
+@media(max-width:700px){
+  .aya-device-panel,
+  .aya-stamp,
+  .aya-payroll-form{
+    grid-template-columns:1fr;
+  }
+  .aya-device-panel>*,
+  .aya-payroll-form>*{
+    grid-column:1!important;
+  }
+  .aya-payroll-metrics{
+    grid-template-columns:1fr 1fr;
+  }
+  .aya-card-title{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+  .aya-attendance-live{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+  .aya-daily-payroll-summary{
+    grid-template-columns:1fr;
+  }
+  .aya-daily-total-list article{
+    grid-template-columns:1fr;
+  }
+  .aya-daily-total-list strong{
+    justify-self:start;
+  }
+}
