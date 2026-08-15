@@ -1,4 +1,4 @@
-const CACHE = 'aya-pos-v2.14.6-total-nilai-inventaris';
+const CACHE = 'aya-pos-v2.14.7-kode-inventaris-otomatis';
 
 const ASSETS = [
   './',

@@ -78,6 +78,64 @@ function rupiah(value) {
   return `Rp${Math.round(number(value)).toLocaleString('id-ID')}`;
 }
 
+const INVENTORY_CODE_PREFIX = 'INV';
+
+function inventoryCode(sequence) {
+  return `${INVENTORY_CODE_PREFIX}-${String(Math.max(1, number(sequence))).padStart(3, '0')}`;
+}
+
+function inventoryCodeNumber(value) {
+  const match = text(value).match(/(\d+)\s*$/);
+  return match ? Number(match[1]) : Number.POSITIVE_INFINITY;
+}
+
+function inventoryTimestamp(row) {
+  const purchaseTime = Date.parse(text(row.purchaseDate));
+  return number(row.createdAt)
+    || number(row.updatedAt)
+    || (Number.isFinite(purchaseTime) ? purchaseTime : Number.MAX_SAFE_INTEGER);
+}
+
+function inventoryOrder(a, b) {
+  const aCode = inventoryCodeNumber(a.code);
+  const bCode = inventoryCodeNumber(b.code);
+  if (Number.isFinite(aCode) && Number.isFinite(bCode) && aCode !== bCode) {
+    return aCode - bCode;
+  }
+  if (Number.isFinite(aCode) && !Number.isFinite(bCode)) return -1;
+  if (!Number.isFinite(aCode) && Number.isFinite(bCode)) return 1;
+
+  const timeDifference = inventoryTimestamp(a) - inventoryTimestamp(b);
+  if (timeDifference !== 0) return timeDifference;
+
+  const nameDifference = text(a.name).localeCompare(text(b.name), 'id');
+  return nameDifference || text(a.id).localeCompare(text(b.id), 'id');
+}
+
+async function normalizeInventoryCodes(branchId, rows) {
+  const normalizedRows = [...rows]
+    .sort(inventoryOrder)
+    .map((row, index) => ({
+      ...row,
+      code: inventoryCode(index + 1)
+    }));
+
+  const changedRows = normalizedRows.filter((row, index) => (
+    text(rows.find(item => String(item.id) === String(row.id))?.code)
+      !== inventoryCode(index + 1)
+  ));
+
+  if (changedRows.length) {
+    await Promise.all(changedRows.map(row => updateData(
+      `inventory/${branchId}/${row.id}`,
+      { code: row.code },
+      { silent: true }
+    )));
+  }
+
+  return normalizedRows;
+}
+
 function closeDialog() {
   if (appDialog?.open) appDialog.close();
 }
@@ -559,8 +617,9 @@ async function renderInventoryV26(force = false) {
 
   await loadTaxonomies();
   const raw = await getOnce(`inventory/${branch.id}`);
-  const rows = values(raw)
-    .filter(row => row.active !== false)
+  const activeRows = values(raw).filter(row => row.active !== false);
+  const sequentialRows = await normalizeInventoryCodes(branch.id, activeRows);
+  const rows = sequentialRows
     .map(row => {
       const unitPrice = number(row.unitPrice ?? row.purchasePrice ?? row.price ?? row.balance);
       const qty = number(row.qty ?? row.quantity ?? 1);
@@ -571,8 +630,7 @@ async function renderInventoryV26(force = false) {
         qty,
         total: number(row.total) || unitPrice * qty
       };
-    })
-    .sort((a, b) => text(a.name).localeCompare(text(b.name), 'id'));
+    });
   const totalInventoryValue = rows.reduce(
     (total, row) => total + number(row.total),
     0
@@ -641,7 +699,9 @@ async function renderInventoryV26(force = false) {
     </article>`;
 
   document.querySelector('#manageInventoryUnits').onclick = openUnitManager;
-  document.querySelector('#addInventoryV26').onclick = () => openInventoryForm(branch, null);
+  document.querySelector('#addInventoryV26').onclick = () => (
+    openInventoryForm(branch, null, inventoryCode(rows.length + 1))
+  );
 
   document.querySelector('#inventoryV26 tbody').onclick = async event => {
     const edit = event.target.closest('[data-inventory-edit]');
@@ -662,11 +722,12 @@ async function renderInventoryV26(force = false) {
   };
 }
 
-async function openInventoryForm(branch, row = null) {
+async function openInventoryForm(branch, row = null, nextCode = '') {
   await loadTaxonomies();
   const data = row || {};
   const unitPrice = number(data.unitPrice ?? data.purchasePrice ?? data.price);
   const qty = number(data.qty ?? data.quantity ?? 1) || 1;
+  const automaticCode = text(data.code) || text(nextCode) || inventoryCode(1);
 
   openDialog(
     row ? 'Edit Inventaris' : 'Tambah Inventaris',
@@ -675,7 +736,8 @@ async function openInventoryForm(branch, row = null) {
         <input name="name" required value="${escapeHTML(data.name || '')}">
       </label>
       <label>Kode Inventaris
-        <input name="code" value="${escapeHTML(data.code || '')}">
+        <input name="code" readonly value="${escapeHTML(automaticCode)}">
+        <span class="unit-datalist-note">Kode dibuat otomatis dan berurutan per cabang.</span>
       </label>
       <label>Harga Satuan
         <input name="unitPrice" inputmode="numeric" required value="${unitPrice}">
@@ -715,10 +777,19 @@ async function openInventoryForm(branch, row = null) {
   document.querySelector('#saveInventoryV26').onclick = async () => {
     if (!form.reportValidity()) return;
     const raw = Object.fromEntries(new FormData(form).entries());
+    let itemCode = automaticCode;
+
+    if (!row?.id) {
+      const latestRaw = await getOnce(`inventory/${branch.id}`, { force: true });
+      const latestRows = values(latestRaw).filter(item => item.active !== false);
+      const normalizedLatestRows = await normalizeInventoryCodes(branch.id, latestRows);
+      itemCode = inventoryCode(normalizedLatestRows.length + 1);
+    }
+
     const item = {
       ...data,
       name: text(raw.name),
-      code: text(raw.code),
+      code: itemCode,
       unitPrice: number(raw.unitPrice),
       qty: number(raw.qty),
       unit: text(raw.unit) || 'pcs',
