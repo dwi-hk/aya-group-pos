@@ -5,6 +5,17 @@ const { JSDOM } = require('jsdom');
 
 const root = path.resolve(__dirname, '..');
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+const dateForTest = value => [
+  value.getFullYear(),
+  String(value.getMonth() + 1).padStart(2, '0'),
+  String(value.getDate()).padStart(2, '0')
+].join('-');
+const todayForTest = value => dateForTest(new Date(value));
+const previousDateForTest = value => {
+  const date = new Date(value);
+  date.setDate(date.getDate() - 1);
+  return dateForTest(date);
+};
 const stripImports = source => source
   .replace(/import\s+[\s\S]*?\s+from\s+['"][^'"]+['"];\s{0,}/g, '')
   .replace(/export\s+async\s+function/g, 'async function')
@@ -586,6 +597,53 @@ async function testPayroll() {
   assert.equal(window.document.querySelector('#saveAttendanceV3').disabled, true);
   assert.equal(window.document.querySelector('.aya-attendance-live').dataset.state, 'completed');
 
+  const backfillForm = window.document.querySelector('#attendanceBackfillForm');
+  assert.ok(backfillForm);
+  assert.equal(backfillForm.elements.date.min, previousDateForTest(new Date()));
+  assert.equal(backfillForm.elements.date.max, todayForTest(new Date()));
+  assert.equal(backfillForm.elements.checkIn.value, '09:00');
+  assert.equal(backfillForm.elements.checkOut.value, '22:00');
+  assert.equal(backfillForm.elements.hoursWorked.value, '13.00');
+  assert.equal(backfillForm.elements.dailyWage.value, '50000');
+  backfillForm.dispatchEvent(new window.Event('submit', {
+    bubbles: true,
+    cancelable: true
+  }));
+  await wait(30);
+
+  const backfillWrite = [...window.__writes].reverse().find(row =>
+    row.type === 'push'
+    && row.path === 'attendance/aya'
+    && row.value.manualAttendanceEntry === true
+  );
+  assert.ok(backfillWrite);
+  assert.equal(backfillWrite.value.status, 'completed');
+  assert.equal(backfillWrite.value.checkIn, '09:00:00');
+  assert.equal(backfillWrite.value.checkOut, '22:00:00');
+  assert.equal(backfillWrite.value.hoursWorked, 13);
+  assert.equal(backfillWrite.value.dailyWage, 50000);
+  assert.equal(backfillWrite.value.netWage, 50000);
+  assert.equal(backfillWrite.value.salaryPaymentDate, '');
+  assert.match(backfillWrite.value.deviceName, /Form Absensi Susulan/);
+  assert.ok(backfillWrite.value.checkOutTimestamp > backfillWrite.value.checkInTimestamp);
+
+  const duplicatePushCount = window.__writes.filter(row =>
+    row.type === 'push'
+    && row.path === 'attendance/aya'
+    && row.value.manualAttendanceEntry === true
+  ).length;
+  window.document.querySelector('#attendanceBackfillForm').dispatchEvent(new window.Event('submit', {
+    bubbles: true,
+    cancelable: true
+  }));
+  await wait(30);
+  assert.equal(window.__writes.filter(row =>
+    row.type === 'push'
+    && row.path === 'attendance/aya'
+    && row.value.manualAttendanceEntry === true
+  ).length, duplicatePushCount);
+  assert.ok(messages.some(row => /tidak diduplikasi/.test(row.message)));
+
   assert.ok(messages.some(row => /tersimpan dalam laporan/.test(row.message)));
   assert.ok(messages.some(row => /Jam masuk/.test(row.message)));
   assert.ok(messages.some(row => /Jam pulang/.test(row.message)));
@@ -612,6 +670,7 @@ async function testPayroll() {
   assert.equal(supervisorHost.querySelectorAll('[data-edit-payment]').length, 0);
   assert.equal(supervisorHost.querySelectorAll('[data-delete-payment]').length, 0);
   assert.equal(supervisorHost.querySelectorAll('[data-edit-attendance]').length, 0);
+  assert.equal(supervisorHost.querySelector('#attendanceBackfillForm'), null);
   assert.match(
     supervisorHost.querySelector('[data-payroll-panel="attendance"]').textContent,
     /Klik nama karyawan terlebih dahulu/
@@ -646,7 +705,7 @@ async function testPayroll() {
 (async () => {
   await testCashier();
   await testPayroll();
-  console.log('SMOKE HAPUS POTONG KASBON v2.14.4: LULUS');
+  console.log('SMOKE FORM ABSENSI SUSULAN v2.14.5: LULUS');
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;

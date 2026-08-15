@@ -164,6 +164,30 @@
   gap:13px;
   align-items:start;
 }
+.aya-attendance-backfill{
+  grid-column:1/-1;
+  border-color:#8a4b12;
+  box-shadow:0 0 0 1px rgba(245,124,0,.18),0 12px 28px rgba(0,0,0,.24);
+}
+.aya-backfill-notice{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  margin:0 16px;
+  padding:11px 12px;
+  border:1px solid rgba(245,124,0,.55);
+  border-radius:10px;
+  background:#1c1209;
+}
+.aya-backfill-notice strong{
+  color:#ff9d2f;
+  font-size:.72rem;
+}
+.aya-backfill-notice span{
+  color:#c6c6c6;
+  font-size:.7rem;
+}
 .aya-payroll-card{
   overflow:hidden;
   border:1px solid #3b3b3b;
@@ -536,6 +560,10 @@
     flex-direction:column;
   }
   .aya-attendance-live{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+  .aya-backfill-notice{
     align-items:flex-start;
     flex-direction:column;
   }

@@ -1,4 +1,4 @@
-const CACHE = 'aya-pos-v2.14.4-hapus-potong-kasbon';
+const CACHE = 'aya-pos-v2.14.6-total-nilai-inventaris';
 
 const ASSETS = [
   './',

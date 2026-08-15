@@ -573,6 +573,10 @@ async function renderInventoryV26(force = false) {
       };
     })
     .sort((a, b) => text(a.name).localeCompare(text(b.name), 'id'));
+  const totalInventoryValue = rows.reduce(
+    (total, row) => total + number(row.total),
+    0
+  );
 
   viewHost.innerHTML = `
     <article id="inventoryV26" class="card">
@@ -586,6 +590,13 @@ async function renderInventoryV26(force = false) {
           <button id="addInventoryV26" type="button" class="primary-button">+ Inventaris</button>
         </div>
       </div>
+      <section class="inventory-grand-total" aria-live="polite">
+        <div>
+          <span>TOTAL NILAI INVENTARIS</span>
+          <small>Jumlah seluruh Harga Satuan × Qty inventaris aktif</small>
+        </div>
+        <strong id="inventoryGrandTotal">${rupiah(totalInventoryValue)}</strong>
+      </section>
       <div class="table-wrap">
         <table>
           <thead>
@@ -618,6 +629,13 @@ async function renderInventoryV26(force = false) {
                 </td>
               </tr>`).join('') || '<tr><td colspan="8">Belum ada inventaris.</td></tr>'}
           </tbody>
+          <tfoot>
+            <tr class="inventory-grand-total-row">
+              <th colspan="5">TOTAL KESELURUHAN</th>
+              <th>${rupiah(totalInventoryValue)}</th>
+              <th colspan="2">${rows.length} inventaris aktif</th>
+            </tr>
+          </tfoot>
         </table>
       </div>
     </article>`;

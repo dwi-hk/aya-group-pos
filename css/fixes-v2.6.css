@@ -39,6 +39,43 @@
   color: var(--orange2);
   font-size: 1.15rem;
 }
+.inventory-grand-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 14px 0;
+  padding: 16px 18px;
+  border: 1px solid rgba(245,124,0,.72);
+  border-left: 5px solid var(--orange);
+  border-radius: 14px;
+  background: linear-gradient(135deg, #0b0b0b, #201207);
+  box-shadow: 0 10px 24px rgba(0,0,0,.22);
+}
+.inventory-grand-total div {
+  display: grid;
+  gap: 4px;
+}
+.inventory-grand-total span {
+  color: var(--orange2);
+  font-size: .78rem;
+  font-weight: 900;
+  letter-spacing: .07em;
+}
+.inventory-grand-total small {
+  color: var(--muted);
+}
+.inventory-grand-total strong {
+  color: var(--orange2);
+  font-size: clamp(1.35rem, 3vw, 2rem);
+  white-space: nowrap;
+}
+.inventory-grand-total-row th {
+  border-top: 2px solid var(--orange);
+  background: #17100a;
+  color: var(--orange2);
+  font-weight: 900;
+}
 .v26-toolbar-buttons {
   display: flex;
   gap: 8px;
@@ -71,5 +108,9 @@
   }
   .taxonomy-row-actions {
     justify-content: flex-end;
+  }
+  .inventory-grand-total {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

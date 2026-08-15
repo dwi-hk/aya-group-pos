@@ -24,7 +24,7 @@ import {
   renderCalculator,
   renderDocuments
 } from './backoffice.js';
-import { renderPayrollAttendance } from './payroll-v2.11.3.js?v=2.14.4';
+import { renderPayrollAttendance } from './payroll-v2.11.3.js?v=2.14.5';
 import { renderReports } from './reports.js';
 import { renderCashReport } from './cash.js';
 import { renderKitchen } from './kitchen.js';

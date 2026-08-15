@@ -24,6 +24,23 @@ function pad(value) {
   return String(value).padStart(2, '0');
 }
 
+function previousDate(date) {
+  const [year, month, day] = text(date).split('-').map(Number);
+  const value = new Date(year, month - 1, day, 12, 0, 0);
+  value.setDate(value.getDate() - 1);
+  return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
+}
+
+function timeWithSeconds(value) {
+  const [hour = '00', minute = '00', second = '00'] = text(value).split(':');
+  return `${pad(hour)}:${pad(minute)}:${pad(second)}`;
+}
+
+function attendanceTimestamp(date, time) {
+  const timestamp = new Date(`${date}T${timeWithSeconds(time)}`).getTime();
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
 function deviceStamp() {
   const now = new Date();
   const date = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
@@ -149,6 +166,10 @@ export async function renderPayrollAttendance(ctx) {
   let clockTimer = null;
   let selectedAttendanceEmployeeId = employees[0]?.id || '';
   let selectedReportEmployeeId = '';
+  let selectedBackfillEmployeeId = employees.find(employee =>
+    text(employee.name).toLowerCase() === 'deni'
+  )?.id || employees[0]?.id || '';
+  let selectedBackfillDate = '';
   let deviceName = localStorage.getItem(DEVICE_NAME_KEY)
     || detectedDeviceName();
 
@@ -395,6 +416,14 @@ export async function renderPayrollAttendance(ctx) {
       && attendanceToday?.status !== 'completed'
     );
     const attendanceCompleted = Boolean(attendanceToday?.checkOut || attendanceToday?.status === 'completed');
+    const backfillYesterday = previousDate(stamp.date);
+    if (![backfillYesterday, stamp.date].includes(selectedBackfillDate)) {
+      selectedBackfillDate = backfillYesterday;
+    }
+    if (!currentEmployee(selectedBackfillEmployeeId)) {
+      selectedBackfillEmployeeId = employees[0]?.id || '';
+    }
+    const selectedBackfillEmployee = currentEmployee(selectedBackfillEmployeeId);
 
     ctx.host.innerHTML = `
       <section class="aya-payroll-view">
@@ -472,6 +501,47 @@ export async function renderPayrollAttendance(ctx) {
 
         <section data-payroll-panel="attendance" hidden>
           <div class="aya-payroll-grid">
+            ${isOwner ? `<form id="attendanceBackfillForm" class="aya-payroll-card aya-payroll-form aya-attendance-backfill">
+              <div class="aya-card-title">
+                <div>
+                  <span class="aya-eyebrow">FORM SEKALI PAKAI · KHUSUS OWNER</span>
+                  <h3>Input Absensi Susulan</h3>
+                  <p>Untuk memasukkan absensi kemarin atau hari ini. Sistem menolak data karyawan dan tanggal yang sama.</p>
+                </div>
+              </div>
+              <div class="aya-backfill-notice full">
+                <strong>BATAS TANGGAL: ${escapeHTML(backfillYesterday)} s.d. ${escapeHTML(stamp.date)}</strong>
+                <span>Data disimpan langsung ke Firebase sebagai absensi selesai dan gaji berjalan yang belum dibayar.</span>
+              </div>
+              <label>Nama Karyawan
+                <select name="employeeId" required>
+                  ${employees.map(employee => `<option value="${escapeHTML(employee.id)}" ${String(employee.id) === String(selectedBackfillEmployeeId) ? 'selected' : ''}>${escapeHTML(employee.name)}</option>`).join('')}
+                </select>
+              </label>
+              <label>Tanggal Absensi
+                <input name="date" type="date" value="${escapeHTML(selectedBackfillDate)}" min="${escapeHTML(backfillYesterday)}" max="${escapeHTML(stamp.date)}" required>
+              </label>
+              <label>Jam Masuk
+                <input name="checkIn" type="time" value="${DEFAULT_CHECK_IN}" required>
+              </label>
+              <label>Jam Pulang
+                <input name="checkOut" type="time" value="${DEFAULT_CHECK_OUT}" required>
+              </label>
+              <label>Total Jam
+                <input name="hoursWorked" value="${hoursBetween(DEFAULT_CHECK_IN, DEFAULT_CHECK_OUT).toFixed(2)}" readonly>
+              </label>
+              <label>Gaji Per Hari
+                <input name="dailyWage" inputmode="numeric" value="${number(selectedBackfillEmployee?.dailyWage)}" required>
+              </label>
+              <label>Gaji Bersih
+                <input name="netWage" value="${rupiah(selectedBackfillEmployee?.dailyWage)}" readonly>
+              </label>
+              <label>Keterangan
+                <input name="notes" value="Absensi susulan oleh Owner" placeholder="Keterangan absensi susulan">
+              </label>
+              <button id="saveAttendanceBackfill" class="primary-button full" ${employees.length ? '' : 'disabled'}>SIMPAN ABSENSI SUSULAN KE FIREBASE</button>
+            </form>` : ''}
+
             <form id="attendanceV3Form" class="aya-payroll-card aya-payroll-form">
               <div class="aya-card-title">
                 <div><span class="aya-eyebrow">WAKTU DEVICE</span><h3>Catat Absensi & Gaji Berjalan</h3></div>
@@ -728,6 +798,152 @@ export async function renderPayrollAttendance(ctx) {
     const cashAdvanceGivenInput = attendanceForm.querySelector('[name="cashAdvanceGiven"]');
     const runningSalaryAfterCashAdvance = attendanceForm.querySelector('[name="runningSalaryAfterCashAdvance"]');
     const clockInButton = attendanceForm.querySelector('#clockInNow');
+
+    const backfillForm = ctx.host.querySelector('#attendanceBackfillForm');
+    if (isOwner && backfillForm) {
+      const backfillEmployee = backfillForm.querySelector('[name="employeeId"]');
+      const backfillDate = backfillForm.querySelector('[name="date"]');
+      const backfillCheckIn = backfillForm.querySelector('[name="checkIn"]');
+      const backfillCheckOut = backfillForm.querySelector('[name="checkOut"]');
+      const backfillHours = backfillForm.querySelector('[name="hoursWorked"]');
+      const backfillDailyWage = backfillForm.querySelector('[name="dailyWage"]');
+      const backfillNetWage = backfillForm.querySelector('[name="netWage"]');
+
+      const updateBackfillPreview = ({ reloadWage = false } = {}) => {
+        const employee = currentEmployee(backfillEmployee.value);
+        selectedBackfillEmployeeId = backfillEmployee.value;
+        selectedBackfillDate = backfillDate.value;
+        if (reloadWage) backfillDailyWage.value = number(employee?.dailyWage);
+        backfillHours.value = hoursBetween(
+          backfillCheckIn.value,
+          backfillCheckOut.value
+        ).toFixed(2);
+        backfillNetWage.value = rupiah(number(backfillDailyWage.value));
+      };
+
+      backfillEmployee.onchange = () => updateBackfillPreview({ reloadWage: true });
+      backfillDate.onchange = updateBackfillPreview;
+      backfillCheckIn.oninput = updateBackfillPreview;
+      backfillCheckOut.oninput = updateBackfillPreview;
+      backfillDailyWage.oninput = updateBackfillPreview;
+
+      backfillForm.onsubmit = async event => {
+        event.preventDefault();
+        if (saving || !backfillForm.reportValidity()) return;
+
+        const employee = currentEmployee(backfillEmployee.value);
+        if (!employee) return ctx.notify('Karyawan tidak ditemukan.', 'error');
+
+        const currentStamp = deviceStamp();
+        const allowedDates = [previousDate(currentStamp.date), currentStamp.date];
+        const workDate = text(backfillDate.value);
+        if (!allowedDates.includes(workDate)) {
+          return ctx.notify('Tanggal absensi susulan hanya boleh kemarin atau hari ini.', 'error');
+        }
+
+        const duplicate = attendance.some(row =>
+          row.reportHidden !== true
+          && rowBelongsToEmployee(row, employee)
+          && text(row.date) === workDate
+        );
+        if (duplicate) {
+          return ctx.notify(`Absensi ${employee.name} tanggal ${workDate} sudah ada. Data tidak diduplikasi.`, 'error');
+        }
+
+        const checkInValue = timeWithSeconds(backfillCheckIn.value);
+        const checkOutValue = timeWithSeconds(backfillCheckOut.value);
+        const checkInTimestamp = attendanceTimestamp(workDate, checkInValue);
+        let checkOutTimestamp = attendanceTimestamp(workDate, checkOutValue);
+        const calculatedHours = hoursBetween(checkInValue, checkOutValue);
+        if (!checkInTimestamp || !checkOutTimestamp || calculatedHours <= 0) {
+          return ctx.notify('Jam masuk dan jam pulang tidak valid.', 'error');
+        }
+        if (checkOutTimestamp < checkInTimestamp) checkOutTimestamp += 24 * 60 * 60 * 1000;
+
+        const gross = number(backfillDailyWage.value);
+        if (gross < 0) return ctx.notify('Nominal gaji tidak boleh negatif.', 'error');
+
+        const auditDeviceName = `${deviceName} · Form Absensi Susulan`;
+        const item = {
+          attendanceV3: true,
+          attendanceV4: true,
+          manualAttendanceEntry: true,
+          manualAttendanceSource: 'owner-backfill-v2.14.5',
+          status: 'completed',
+          employeeId: employee.id,
+          employeeName: employee.name || '',
+          date: workDate,
+          checkIn: checkInValue,
+          checkOut: checkOutValue,
+          checkInTimestamp,
+          checkOutTimestamp,
+          hoursWorked: calculatedHours,
+          dailyWage: gross,
+          deduction: 0,
+          netWage: gross,
+          cashAdvanceGiven: 0,
+          cashAdvancePaymentDate: '',
+          bonus: 0,
+          bonusRecipientId: employee.id,
+          bonusRecipientName: employee.name || '',
+          bonusPaymentDate: '',
+          salaryPaymentDate: '',
+          notes: text(backfillForm.elements.notes.value) || 'Absensi susulan oleh Owner',
+          branchId: ctx.branch.id,
+          branchName: ctx.branch.name,
+          checkInDeviceDate: workDate,
+          checkInDeviceTime: checkInValue,
+          checkInDeviceTimestamp: checkInTimestamp,
+          checkInDeviceISO: new Date(checkInTimestamp).toISOString(),
+          checkInDeviceTimezone: currentStamp.timezone,
+          checkInDeviceName: auditDeviceName,
+          checkOutDeviceDate: workDate,
+          checkOutDeviceTime: checkOutValue,
+          checkOutDeviceTimestamp: checkOutTimestamp,
+          checkOutDeviceISO: new Date(checkOutTimestamp).toISOString(),
+          checkOutDeviceTimezone: currentStamp.timezone,
+          checkOutDeviceName: auditDeviceName,
+          deviceDate: currentStamp.date,
+          deviceTime: currentStamp.time,
+          deviceTimestamp: currentStamp.timestamp,
+          deviceISO: currentStamp.iso,
+          deviceTimezone: currentStamp.timezone,
+          deviceName: auditDeviceName,
+          devicePlatform: navigator.platform || '',
+          recordedTime: currentStamp.time,
+          createdBy: ctx.user.name,
+          createdByUid: ctx.user.uid || '',
+          createdAt: checkInTimestamp,
+          completedAt: checkOutTimestamp,
+          updatedAt: currentStamp.timestamp,
+          manualEntryCreatedAt: currentStamp.timestamp
+        };
+
+        saving = true;
+        const button = backfillForm.querySelector('#saveAttendanceBackfill');
+        button.disabled = true;
+        button.textContent = 'MENYIMPAN ABSENSI SUSULAN…';
+
+        try {
+          const result = await pushData(`attendance/${ctx.branch.id}`, item);
+          attendance.unshift({ ...item, id: result.key });
+          selectedAttendanceEmployeeId = employee.id;
+          selectedBackfillEmployeeId = employee.id;
+          selectedBackfillDate = workDate;
+          selectedReportEmployeeId = employee.id;
+          activeTab = 'attendance';
+          ctx.notify(`Absensi susulan ${employee.name} tanggal ${workDate} tersimpan. Gaji ${rupiah(gross)} masuk ke saldo berjalan.`);
+          draw();
+        } catch (error) {
+          console.error(error);
+          ctx.notify(error.message || 'Absensi susulan gagal disimpan ke Firebase.', 'error');
+          button.disabled = false;
+          button.textContent = 'SIMPAN ABSENSI SUSULAN KE FIREBASE';
+        } finally {
+          saving = false;
+        }
+      };
+    }
 
     const updateAttendancePreview = () => {
       const employee = currentEmployee(attendanceEmployee.value);
