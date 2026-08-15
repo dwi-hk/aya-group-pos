@@ -626,6 +626,12 @@ async function renderInventoryV26(force = false) {
       return {
         ...row,
         unit: text(row.unit || 'pcs'),
+        purchaseStore: text(
+          row.purchaseStore || row.storeName || row.supplierName || row.purchasePlace
+        ),
+        storePhone: text(
+          row.storePhone || row.supplierPhone || row.purchasePhone || row.storeContact
+        ),
         unitPrice,
         qty,
         total: number(row.total) || unitPrice * qty
@@ -655,12 +661,22 @@ async function renderInventoryV26(force = false) {
         </div>
         <strong id="inventoryGrandTotal">${rupiah(totalInventoryValue)}</strong>
       </section>
+      <section class="inventory-search-panel">
+        <label for="inventorySearchV26">
+          <span>🔎 PENCARIAN BARANG</span>
+          <input id="inventorySearchV26" type="search" autocomplete="off"
+            placeholder="Cari nama, kode, toko, nomor telepon, satuan, atau keterangan…">
+        </label>
+        <small id="inventorySearchInfo">Menampilkan ${rows.length} inventaris</small>
+      </section>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
               <th>Nama Inventaris</th>
               <th>Kode</th>
+              <th>Tempat Membeli</th>
+              <th>No. Telepon Toko</th>
               <th>Harga Satuan</th>
               <th>Qty</th>
               <th>Satuan</th>
@@ -671,9 +687,22 @@ async function renderInventoryV26(force = false) {
           </thead>
           <tbody>
             ${rows.map(row => `
-              <tr>
+              <tr data-inventory-row
+                data-inventory-search="${escapeHTML(normalized([
+                  row.name,
+                  row.code,
+                  row.purchaseStore,
+                  row.storePhone,
+                  row.unit,
+                  row.notes || row.address
+                ].join(' ')))}"
+                data-inventory-total="${number(row.total)}">
                 <td><strong>${escapeHTML(row.name || '-')}</strong></td>
                 <td>${escapeHTML(row.code || '-')}</td>
+                <td>${escapeHTML(row.purchaseStore || '-')}</td>
+                <td>${row.storePhone
+                  ? `<a href="tel:${escapeHTML(row.storePhone.replace(/[^\d+]/g, ''))}">${escapeHTML(row.storePhone)}</a>`
+                  : '-'}</td>
                 <td>${rupiah(row.unitPrice)}</td>
                 <td>${row.qty}</td>
                 <td>${escapeHTML(row.unit)}</td>
@@ -685,13 +714,16 @@ async function renderInventoryV26(force = false) {
                     <button type="button" class="icon-button" data-inventory-delete="${escapeHTML(row.id)}" title="Hapus">🗑️</button>
                   </div>
                 </td>
-              </tr>`).join('') || '<tr><td colspan="8">Belum ada inventaris.</td></tr>'}
+              </tr>`).join('') || '<tr><td colspan="10">Belum ada inventaris.</td></tr>'}
+            <tr id="inventorySearchEmpty" hidden>
+              <td colspan="10">Barang yang dicari tidak ditemukan.</td>
+            </tr>
           </tbody>
           <tfoot>
             <tr class="inventory-grand-total-row">
-              <th colspan="5">TOTAL KESELURUHAN</th>
-              <th>${rupiah(totalInventoryValue)}</th>
-              <th colspan="2">${rows.length} inventaris aktif</th>
+              <th id="inventoryVisibleTotalLabel" colspan="7">TOTAL KESELURUHAN</th>
+              <th id="inventoryVisibleTotal">${rupiah(totalInventoryValue)}</th>
+              <th id="inventoryVisibleCount" colspan="2">${rows.length} inventaris aktif</th>
             </tr>
           </tfoot>
         </table>
@@ -702,6 +734,42 @@ async function renderInventoryV26(force = false) {
   document.querySelector('#addInventoryV26').onclick = () => (
     openInventoryForm(branch, null, inventoryCode(rows.length + 1))
   );
+
+  const searchInput = document.querySelector('#inventorySearchV26');
+  const searchInfo = document.querySelector('#inventorySearchInfo');
+  const searchEmpty = document.querySelector('#inventorySearchEmpty');
+  const visibleTotalLabel = document.querySelector('#inventoryVisibleTotalLabel');
+  const visibleTotal = document.querySelector('#inventoryVisibleTotal');
+  const visibleCount = document.querySelector('#inventoryVisibleCount');
+  const inventoryTableRows = [...document.querySelectorAll('[data-inventory-row]')];
+
+  const applyInventorySearch = () => {
+    const query = normalized(searchInput.value);
+    let resultCount = 0;
+    let resultTotal = 0;
+
+    inventoryTableRows.forEach(tableRow => {
+      const show = !query || text(tableRow.dataset.inventorySearch).includes(query);
+      tableRow.hidden = !show;
+      if (show) {
+        resultCount += 1;
+        resultTotal += number(tableRow.dataset.inventoryTotal);
+      }
+    });
+
+    searchInfo.textContent = query
+      ? `Ditemukan ${resultCount} dari ${rows.length} inventaris`
+      : `Menampilkan ${rows.length} inventaris`;
+    searchEmpty.hidden = !query || resultCount > 0 || rows.length === 0;
+    visibleTotalLabel.textContent = query ? 'TOTAL HASIL PENCARIAN' : 'TOTAL KESELURUHAN';
+    visibleTotal.textContent = rupiah(resultTotal);
+    visibleCount.textContent = query
+      ? `${resultCount} dari ${rows.length} inventaris`
+      : `${rows.length} inventaris aktif`;
+  };
+
+  searchInput.addEventListener('input', applyInventorySearch);
+  applyInventorySearch();
 
   document.querySelector('#inventoryV26 tbody').onclick = async event => {
     const edit = event.target.closest('[data-inventory-edit]');
@@ -728,6 +796,9 @@ async function openInventoryForm(branch, row = null, nextCode = '') {
   const unitPrice = number(data.unitPrice ?? data.purchasePrice ?? data.price);
   const qty = number(data.qty ?? data.quantity ?? 1) || 1;
   const automaticCode = text(data.code) || text(nextCode) || inventoryCode(1);
+  const selectedUnit = text(data.unit) || 'pcs';
+  const selectableUnits = [...new Set([...unitNames, selectedUnit].filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'id'));
 
   openDialog(
     row ? 'Edit Inventaris' : 'Tambah Inventaris',
@@ -746,11 +817,25 @@ async function openInventoryForm(branch, row = null, nextCode = '') {
         <input name="qty" type="number" min="0.01" step="0.01" required value="${qty}">
       </label>
       <label>Satuan
-        <input name="unit" data-unit-input list="ayaUnitList" required value="${escapeHTML(data.unit || 'pcs')}" placeholder="Ketik atau pilih satuan">
-        <span class="unit-datalist-note">Satuan baru dapat diketik langsung dan akan disimpan.</span>
+        <select name="unit" required>
+          ${selectableUnits.map(unit => `
+            <option value="${escapeHTML(unit)}" ${unit === selectedUnit ? 'selected' : ''}>
+              ${escapeHTML(unit)}
+            </option>`).join('')}
+        </select>
+        <span class="unit-datalist-note">Daftar pilihan dapat diatur melalui tombol Kelola Satuan.</span>
       </label>
       <label>Tanggal Pembelian
         <input name="purchaseDate" type="date" value="${escapeHTML(data.purchaseDate || new Date().toISOString().slice(0, 10))}">
+      </label>
+      <label>Tempat Membeli / Nama Toko
+        <input name="purchaseStore" value="${escapeHTML(data.purchaseStore || data.storeName || data.supplierName || data.purchasePlace || '')}"
+          placeholder="Contoh: Toko Sumber Makmur">
+      </label>
+      <label>Nomor Telepon Toko
+        <input name="storePhone" type="tel" inputmode="tel"
+          value="${escapeHTML(data.storePhone || data.supplierPhone || data.purchasePhone || data.storeContact || '')}"
+          placeholder="Contoh: 0812 3456 7890">
       </label>
       <label class="full">Keterangan
         <textarea name="notes">${escapeHTML(data.notes || data.address || '')}</textarea>
@@ -795,6 +880,8 @@ async function openInventoryForm(branch, row = null, nextCode = '') {
       unit: text(raw.unit) || 'pcs',
       total: number(raw.unitPrice) * number(raw.qty),
       purchaseDate: text(raw.purchaseDate),
+      purchaseStore: text(raw.purchaseStore),
+      storePhone: text(raw.storePhone),
       notes: text(raw.notes),
       branchId: branch.id,
       branchName: branch.name,

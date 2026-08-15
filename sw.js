@@ -1,4 +1,4 @@
-const CACHE = 'aya-pos-v2.14.7-kode-inventaris-otomatis';
+const CACHE = 'aya-pos-v2.14.9-dropdown-satuan-inventaris';
 
 const ASSETS = [
   './',
