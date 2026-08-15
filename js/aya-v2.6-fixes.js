@@ -1023,7 +1023,8 @@ async function enhanceReports() {
 function applyOperationPeriod() {
   const start = text(document.querySelector('#operationStart')?.value);
   const end = text(document.querySelector('#operationEnd')?.value);
-  const rows = [...document.querySelectorAll('#operationTable tbody tr')];
+  const query = normalized(document.querySelector('#operationSearch')?.value);
+  const rows = [...document.querySelectorAll('#operationTable tbody tr[data-operation-row]')];
   let visible = 0;
   let total = 0;
 
@@ -1031,7 +1032,9 @@ function applyOperationPeriod() {
     const cells = row.querySelectorAll('td');
     if (cells.length < 7) return;
     const date = text(cells[0].textContent).slice(0, 10);
-    const show = (!start || date >= start) && (!end || date <= end);
+    const matchesPeriod = (!start || date >= start) && (!end || date <= end);
+    const matchesSearch = !query || normalized(row.textContent).includes(query);
+    const show = matchesPeriod && matchesSearch;
     row.classList.toggle('row-filtered', !show);
     if (show) {
       visible += 1;
@@ -1040,7 +1043,10 @@ function applyOperationPeriod() {
   });
 
   const info = document.querySelector('#operationPeriodInfo');
-  if (info) info.textContent = `${visible} data tampil · Total periode ${rupiah(total)}`;
+  if (info) info.textContent = `${visible} data tampil · Total hasil filter ${rupiah(total)}`;
+
+  const empty = document.querySelector('#operationFilterEmpty');
+  if (empty) empty.hidden = visible > 0 || rows.length === 0;
 }
 
 function enhanceOperations() {
@@ -1067,6 +1073,10 @@ function enhanceOperations() {
       <label>Tanggal Akhir
         <input id="operationEnd" type="date" value="${end}">
       </label>
+      <label class="full">Cari Data Operasional
+        <input id="operationSearch" type="search" autocomplete="off"
+          placeholder="Cari nama pengeluaran, keterangan, Contact Person, alamat, nomor WA, atau metode…">
+      </label>
       <p id="operationPeriodInfo" class="muted full" style="margin:0"></p>
     `;
 
@@ -1074,6 +1084,7 @@ function enhanceOperations() {
     article.insertBefore(panel, tableWrap);
     panel.querySelector('#operationStart').onchange = applyOperationPeriod;
     panel.querySelector('#operationEnd').onchange = applyOperationPeriod;
+    panel.querySelector('#operationSearch').oninput = applyOperationPeriod;
   }
 
   applyOperationPeriod();

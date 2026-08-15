@@ -117,6 +117,38 @@
 #inventoryV26 a[href^="tel:"]:hover {
   text-decoration: underline;
 }
+.operation-notes-full,
+.operation-address-full {
+  min-width: 220px;
+  max-width: 360px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+.operation-notes-full {
+  min-width: 280px;
+}
+.operation-actions {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  white-space: nowrap;
+}
+.operation-wa-link {
+  color: var(--orange2);
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.operation-wa-link:hover {
+  text-decoration: underline;
+}
+#operationSearch {
+  min-height: 44px;
+  border-color: rgba(245,124,0,.62);
+  background: #111318;
+  color: var(--text);
+}
 .v26-toolbar-buttons {
   display: flex;
   gap: 8px;

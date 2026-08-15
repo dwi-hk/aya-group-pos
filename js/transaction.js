@@ -12,13 +12,18 @@ import {
 import { db } from './firebase-config.js';
 import {
   ref,
-  remove
+  remove,
+  update as updateFirebase
 } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js';
 import { rupiah, escapeHTML, number, formObject, toArray, dateTime, sum } from './utils.js';
 import { audit } from './audit.js';
 
 const PAYMENT_OPTIONS = ['TUNAI', 'QRIS', 'HUTANG', 'PERSONAL'];
 const paymentSelect = (id, value = 'TUNAI') => `<select id="${id}">${PAYMENT_OPTIONS.map(method => `<option ${method === value ? 'selected' : ''}>${method}</option>`).join('')}</select>`;
+const whatsappNumber = value => {
+  const digits = String(value || '').replace(/\D/g, '');
+  return digits.startsWith('0') ? `62${digits.slice(1)}` : digits;
+};
 
 function requireBranch(ctx) {
   if (ctx.branch.id !== 'all') return true;
@@ -289,6 +294,52 @@ export async function renderOperations(ctx) {
     }
   };
 
+  const editOperation = row => {
+    operationForm(ctx, row, async item => {
+      const updated = {
+        ...item,
+        updatedBy: ctx.user.name,
+        updatedAt: Date.now()
+      };
+      const isLegacy = String(row.source || '')
+        .startsWith('legacy:pengeluaran');
+
+      if (isLegacy) {
+        await updateFirebase(ref(db, `pengeluaran/${row.id}`), {
+          tanggalISO: updated.date,
+          namaBarang: updated.name,
+          satuan: updated.unit,
+          qty: updated.qty,
+          jumlah: updated.qty,
+          harga: updated.price,
+          total: updated.total,
+          metode: updated.paymentMethod,
+          paymentMethod: updated.paymentMethod,
+          kategori: updated.category,
+          keterangan: updated.notes,
+          contactPerson: updated.contactPerson,
+          alamat: updated.address,
+          wa: updated.whatsapp,
+          updatedBy: updated.updatedBy,
+          updatedAt: updated.updatedAt
+        });
+        invalidateDataCache('operations');
+      } else {
+        await updateData(
+          `operations/${ctx.branch.id}/${row.id}`,
+          updated
+        );
+      }
+
+      Object.assign(row, updated);
+      rows.sort((a, b) =>
+        String(b.date || '').localeCompare(String(a.date || ''))
+        || number(b.createdAt) - number(a.createdAt)
+      );
+      draw();
+    });
+  };
+
   const draw = () => {
     ctx.host.innerHTML = `
       <article class="card">
@@ -316,13 +367,16 @@ export async function renderOperations(ctx) {
                 <th>Harga</th>
                 <th>Metode</th>
                 <th>Total</th>
-                <th>Keterangan</th>
+                <th>Keterangan Lengkap</th>
+                <th>Contact Person</th>
+                <th>Alamat</th>
+                <th>No. WhatsApp</th>
                 <th>Aksi</th>
               </tr>
             </thead>
             <tbody>
               ${rows.map(row => `
-                <tr>
+                <tr data-operation-row>
                   <td>${escapeHTML(row.date)}</td>
                   <td>${escapeHTML(row.name)}</td>
                   <td>${escapeHTML(row.unit)}</td>
@@ -330,27 +384,41 @@ export async function renderOperations(ctx) {
                   <td>${rupiah(row.price)}</td>
                   <td>${escapeHTML(row.paymentMethod || row.method || 'TUNAI')}</td>
                   <td>${rupiah(row.total)}</td>
-                  <td>${escapeHTML(row.notes || '-')}</td>
+                  <td class="operation-notes-full">${escapeHTML(row.notes || '-')}</td>
+                  <td>${escapeHTML(row.contactPerson || row.pic || '-')}</td>
+                  <td class="operation-address-full">${escapeHTML(row.address || row.alamat || '-')}</td>
+                  <td>${row.whatsapp || row.wa
+                    ? `<a class="operation-wa-link" target="_blank" rel="noopener" href="https://wa.me/${escapeHTML(whatsappNumber(row.whatsapp || row.wa))}">${escapeHTML(row.whatsapp || row.wa)}</a>`
+                    : '-'}</td>
                   <td>
-                    <button
-                      type="button"
-                      class="danger-button"
-                      data-operation-delete="${escapeHTML(row.id)}"
-                      title="Hapus pengeluaran operasional"
-                    >
-                      Hapus
-                    </button>
+                    <div class="operation-actions">
+                      <button
+                        type="button"
+                        class="secondary-button"
+                        data-operation-edit="${escapeHTML(row.id)}"
+                        title="Edit pengeluaran operasional"
+                      >Edit</button>
+                      <button
+                        type="button"
+                        class="danger-button"
+                        data-operation-delete="${escapeHTML(row.id)}"
+                        title="Hapus pengeluaran operasional"
+                      >Hapus</button>
+                    </div>
                   </td>
                 </tr>
               `).join('')
-              || '<tr><td colspan="9">Belum ada pengeluaran.</td></tr>'}
+              || '<tr><td colspan="12">Belum ada pengeluaran.</td></tr>'}
+              <tr id="operationFilterEmpty" hidden>
+                <td colspan="12">Data operasional yang dicari tidak ditemukan.</td>
+              </tr>
             </tbody>
           </table>
         </div>
       </article>`;
 
     ctx.host.querySelector('#addOperation').onclick = () =>
-      operationForm(ctx, async item => {
+      operationForm(ctx, null, async item => {
         const result = await pushData(
           `operations/${ctx.branch.id}`,
           item
@@ -362,42 +430,82 @@ export async function renderOperations(ctx) {
           source: 'ayaGroupV2'
         });
 
+        rows.sort((a, b) =>
+          String(b.date || '').localeCompare(String(a.date || ''))
+          || number(b.createdAt) - number(a.createdAt)
+        );
         draw();
       });
 
     ctx.host.querySelector('tbody').onclick = event => {
-      const button = event.target.closest(
-        '[data-operation-delete]'
-      );
+      const editButton = event.target.closest('[data-operation-edit]');
+      const deleteButton = event.target.closest('[data-operation-delete]');
+      const button = editButton || deleteButton;
 
       if (!button) return;
 
       const row = rows.find(item =>
         String(item.id) === String(
-          button.dataset.operationDelete
+          editButton
+            ? button.dataset.operationEdit
+            : button.dataset.operationDelete
         )
       );
 
-      if (row) deleteOperation(row);
+      if (!row) return;
+      if (editButton) editOperation(row);
+      else deleteOperation(row);
     };
   };
 
   draw();
 }
 
-function operationForm(ctx, onSave) {
-  ctx.dialog('Tambah Operasional', `
+function operationForm(ctx, row, onSave) {
+  const data = row || {};
+  const selectedPayment = data.paymentMethod || data.method || 'TUNAI';
+  const defaultCategories = [
+    'Bahan Baku',
+    'Listrik/Air',
+    'Transportasi',
+    'Perawatan',
+    'Makan Karyawan',
+    'Lainnya'
+  ];
+  const selectedCategory = data.category || 'Bahan Baku';
+  const categories = [...new Set([...defaultCategories, selectedCategory])];
+
+  ctx.dialog(row ? 'Edit Operasional' : 'Tambah Operasional', `
     <form id="operationForm" class="form-grid">
-      <label>Tanggal<input name="date" type="date" required value="${new Date().toISOString().slice(0, 10)}"></label>
-      <label>Nama Barang/Pengeluaran<input name="name" required></label>
-      <label>Satuan<input name="unit" value="pcs"></label>
-      <label>Jumlah<input name="qty" type="number" min="0.01" step="0.01" value="1"></label>
-      <label>Harga Satuan<input name="price" inputmode="numeric" required></label>
-      <label>Metode Pembayaran<select name="paymentMethod">${PAYMENT_OPTIONS.map(method => `<option>${method}</option>`).join('')}</select></label>
-      <label>Kategori<select name="category"><option>Bahan Baku</option><option>Listrik/Air</option><option>Transportasi</option><option>Perawatan</option><option>Makan Karyawan</option><option>Lainnya</option></select></label>
-      <label class="full">Keterangan<textarea name="notes"></textarea></label>
+      <label>Tanggal<input name="date" type="date" required value="${escapeHTML(data.date || new Date().toISOString().slice(0, 10))}"></label>
+      <label>Nama Barang/Pengeluaran<input name="name" required value="${escapeHTML(data.name || '')}"></label>
+      <label>Satuan<input name="unit" value="${escapeHTML(data.unit || 'pcs')}"></label>
+      <label>Jumlah<input name="qty" type="number" min="0.01" step="0.01" value="${number(data.qty) || 1}"></label>
+      <label>Harga Satuan<input name="price" inputmode="numeric" required value="${number(data.price)}"></label>
+      <label>Metode Pembayaran
+        <select name="paymentMethod">
+          ${PAYMENT_OPTIONS.map(method => `<option ${method === selectedPayment ? 'selected' : ''}>${method}</option>`).join('')}
+        </select>
+      </label>
+      <label>Kategori
+        <select name="category">
+          ${categories.map(category => `<option ${category === selectedCategory ? 'selected' : ''}>${escapeHTML(category)}</option>`).join('')}
+        </select>
+      </label>
+      <label>Contact Person
+        <input name="contactPerson" value="${escapeHTML(data.contactPerson || data.pic || '')}" placeholder="Nama yang dapat dihubungi">
+      </label>
+      <label class="full">Alamat
+        <textarea name="address" rows="2" placeholder="Alamat lengkap tempat pembayaran atau pembelian">${escapeHTML(data.address || data.alamat || '')}</textarea>
+      </label>
+      <label>Nomor WhatsApp
+        <input name="whatsapp" type="tel" inputmode="tel" value="${escapeHTML(data.whatsapp || data.wa || '')}" placeholder="Contoh: 0812 3456 7890">
+      </label>
+      <label class="full">Keterangan Lengkap
+        <textarea name="notes" rows="4" placeholder="Tuliskan rincian operasional secara lengkap">${escapeHTML(data.notes || '')}</textarea>
+      </label>
     </form>`,
-    '<button value="cancel" class="secondary-button">Batal</button><button id="saveOperation" class="primary-button">Simpan</button>'
+    `<button value="cancel" class="secondary-button">Batal</button><button id="saveOperation" class="primary-button">${row ? 'Simpan Perubahan' : 'Simpan'}</button>`
   );
   document.querySelector('#saveOperation').onclick = async event => {
     event.preventDefault();
@@ -411,13 +519,22 @@ function operationForm(ctx, onSave) {
       total: number(raw.qty) * number(raw.price),
       branchId: ctx.branch.id,
       branchName: ctx.branch.name,
-      createdBy: ctx.user.name,
-      createdAt: Date.now()
+      createdBy: data.createdBy || ctx.user.name,
+      createdAt: data.createdAt || Date.now(),
+      updatedBy: ctx.user.name,
+      updatedAt: Date.now()
     };
     await onSave(item);
-    await audit('CREATE', 'OPERATION', { name: item.name, total: item.total, paymentMethod: item.paymentMethod });
+    await audit(row ? 'UPDATE' : 'CREATE', 'OPERATION', {
+      id: row?.id || '',
+      name: item.name,
+      total: item.total,
+      paymentMethod: item.paymentMethod,
+      contactPerson: item.contactPerson,
+      whatsapp: item.whatsapp
+    });
     document.querySelector('#appDialog').close();
-    ctx.notify('Operasional tersimpan');
+    ctx.notify(row ? 'Operasional berhasil diperbarui' : 'Operasional tersimpan');
   };
 }
 
