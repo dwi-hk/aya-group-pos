@@ -1,4 +1,4 @@
-const CACHE = 'aya-pos-v2.15.2-barcode-catalog';
+const CACHE = 'aya-pos-v2.15.3-scan-autocart';
 
 const ASSETS = [
   './',

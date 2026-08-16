@@ -7,6 +7,9 @@ import { startScanner, stopScanner, scannerSupported } from './scanner.js';
 
 const PAGE_SIZE = 300;
 const SEARCH_DELAY = 180;
+const HARDWARE_SCAN_MIN_LENGTH = 8;
+const HARDWARE_SCAN_MAX_GAP = 120;
+const HARDWARE_SCAN_IDLE_COMMIT = 160;
 const CASH_METHOD = 'TUNAI';
 const PAYMENT_METHODS = [
   { value: 'TUNAI', icon: '💵' },
@@ -103,6 +106,22 @@ export async function renderPOS(ctx) {
       if (key) productByQuickCode.set(key, product);
     });
   });
+
+  const normalizeScanCode = value => {
+    const raw = String(value || '').trim().toLowerCase();
+    if (!raw) return '';
+
+    // Scanner EAN biasanya mengirim angka tanpa spasi. Jika perangkat / browser
+    // menyisipkan spasi, rapatkan kembali supaya tetap cocok dengan barcode katalog.
+    const compact = raw.replace(/\s+/g, '');
+    return /^\d{8,14}$/.test(compact) ? compact : raw;
+  };
+
+  const findProductByScanCode = value => {
+    const code = normalizeScanCode(value);
+    if (!code) return null;
+    return productByBarcode.get(code) || productByQuickCode.get(code) || null;
+  };
 
   const categories = [
     'Semua',
@@ -658,26 +677,66 @@ export async function renderPOS(ctx) {
     if (event.target.closest('#emptyAddMenuButton')) openMaster();
   };
 
-  $('#quickCode').onkeydown = event => {
-    if (event.key !== 'Enter') return;
-    event.preventDefault();
-    const code = event.currentTarget.value.trim().toLowerCase();
-    if (!code) return;
+  let quickCodeAutoTimer = null;
 
-    const product = productByQuickCode.get(code);
+  const processScannedCode = (rawCode, { input = null, showNotFound = true } = {}) => {
+    const code = normalizeScanCode(rawCode);
+    if (!code) return false;
+
+    const product = findProductByScanCode(code);
     if (product) {
       addProduct(product.id);
       showScanResult(product, code);
-      event.currentTarget.value = '';
-      event.currentTarget.focus();
-      return;
+
+      if (input) input.value = '';
+      const quickCodeInput = $('#quickCode');
+      quickCodeInput?.focus();
+      quickCodeInput?.select?.();
+      return true;
     }
 
-    showScanResult(null, code, 'error');
-    $('#productSearch').value = code;
-    currentPage = 1;
-    renderProducts();
-    ctx.notify('Kode menu atau barcode belum terdaftar', 'error');
+    if (showNotFound) {
+      showScanResult(null, code, 'error');
+      $('#productSearch').value = code;
+      currentPage = 1;
+      renderProducts();
+      ctx.notify('Kode menu atau barcode belum terdaftar', 'error');
+    }
+    return false;
+  };
+
+  $('#quickCode').onkeydown = event => {
+    if (event.key !== 'Enter' && event.key !== 'Tab') return;
+
+    const code = event.currentTarget.value;
+    if (!normalizeScanCode(code)) return;
+
+    event.preventDefault();
+    if (quickCodeAutoTimer) {
+      window.clearTimeout(quickCodeAutoTimer);
+      quickCodeAutoTimer = null;
+    }
+    processScannedCode(code, { input: event.currentTarget });
+  };
+
+  $('#quickCode').oninput = event => {
+    if (quickCodeAutoTimer) window.clearTimeout(quickCodeAutoTimer);
+
+    const input = event.currentTarget;
+    const code = normalizeScanCode(input.value);
+    const product = findProductByScanCode(code);
+
+    // Scanner USB yang tidak memiliki suffix Enter/Tab tetap langsung masuk nota
+    // sesaat setelah EAN lengkap diterima. Input manual tetap dapat memakai Enter.
+    if (!product || code.length < HARDWARE_SCAN_MIN_LENGTH) return;
+
+    quickCodeAutoTimer = window.setTimeout(() => {
+      quickCodeAutoTimer = null;
+      if (!input.isConnected) return;
+      const currentCode = normalizeScanCode(input.value);
+      if (currentCode !== code) return;
+      processScannedCode(currentCode, { input, showNotFound: false });
+    }, HARDWARE_SCAN_IDLE_COMMIT);
   };
 
   $('#productSearch').oninput = debounce(() => {
@@ -1043,19 +1102,7 @@ export async function renderPOS(ctx) {
   };
 
   $('#scanButton').onclick = () => openScanner(ctx, code => {
-    const product = productByBarcode.get(String(code).trim().toLowerCase());
-
-    if (product) {
-      addProduct(product.id);
-      showScanResult(product, code);
-      return;
-    }
-
-    showScanResult(null, code, 'error');
-    $('#productSearch').value = code;
-    currentPage = 1;
-    renderProducts();
-    ctx.notify('Barcode belum terdaftar', 'error');
+    processScannedCode(code);
   });
 
   const shortcutController = new window.AbortController();
@@ -1064,6 +1111,116 @@ export async function renderPOS(ctx) {
     event.preventDefault();
     $('#scanButton').click();
   }, { signal: shortcutController.signal });
+
+  /*
+   * Scanner barcode USB / Bluetooth umumnya bekerja seperti keyboard.
+   * Sebelumnya barcode hanya diproses bila fokus tepat berada di #quickCode
+   * lalu scanner mengirim Enter. Akibatnya scan saat fokus ada di kolom Bayar,
+   * Pelanggan, Catatan, dsb. tidak menambah barang ke nota.
+   *
+   * Listener berikut menangkap rangkaian tombol yang masuk sangat cepat,
+   * menganggapnya sebagai hasil scanner, mengembalikan nilai field yang sempat
+   * terkena ketikan scanner, lalu langsung menjalankan addProduct().
+   */
+  let hardwareScanBuffer = '';
+  let hardwareScanStartedAt = 0;
+  let hardwareScanLastAt = 0;
+  let hardwareScanTarget = null;
+  let hardwareScanOriginalValue = null;
+  let hardwareScanIdleTimer = null;
+
+  const resetHardwareScan = () => {
+    hardwareScanBuffer = '';
+    hardwareScanStartedAt = 0;
+    hardwareScanLastAt = 0;
+    hardwareScanTarget = null;
+    hardwareScanOriginalValue = null;
+    if (hardwareScanIdleTimer) {
+      window.clearTimeout(hardwareScanIdleTimer);
+      hardwareScanIdleTimer = null;
+    }
+  };
+
+  const restoreHardwareScanTarget = () => {
+    const target = hardwareScanTarget;
+    if (!target || hardwareScanOriginalValue === null || !target.isConnected) return;
+    if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)) return;
+
+    target.value = hardwareScanOriginalValue;
+    target.dispatchEvent(new Event('input', { bubbles: true }));
+  };
+
+  const hardwareScanLooksValid = now => {
+    const code = normalizeScanCode(hardwareScanBuffer);
+    if (code.length < HARDWARE_SCAN_MIN_LENGTH) return false;
+
+    const elapsed = Math.max(1, now - hardwareScanStartedAt);
+    const averageGap = elapsed / Math.max(1, hardwareScanBuffer.length - 1);
+    return averageGap <= HARDWARE_SCAN_MAX_GAP;
+  };
+
+  const commitHardwareScan = () => {
+    const now = performance.now();
+    if (!hardwareScanLooksValid(now)) {
+      resetHardwareScan();
+      return false;
+    }
+
+    const code = normalizeScanCode(hardwareScanBuffer);
+    restoreHardwareScanTarget();
+    resetHardwareScan();
+    return processScannedCode(code);
+  };
+
+  document.addEventListener('keydown', event => {
+    if (!ctx.host.isConnected || event.defaultPrevented) return;
+    if (event.key === 'F8') return;
+
+    const quickCodeInput = $('#quickCode');
+    if (event.target === quickCodeInput) return;
+
+    // Jangan menangkap scanner global ketika dialog form/kamera sedang terbuka.
+    const dialog = document.querySelector('#appDialog');
+    if (dialog?.open) return;
+
+    const now = performance.now();
+
+    if (event.key === 'Enter' || event.key === 'Tab') {
+      if (hardwareScanBuffer && hardwareScanLooksValid(now)) {
+        event.preventDefault();
+        event.stopPropagation();
+        commitHardwareScan();
+      } else {
+        resetHardwareScan();
+      }
+      return;
+    }
+
+    if (event.ctrlKey || event.altKey || event.metaKey || event.key.length !== 1) {
+      return;
+    }
+
+    if (!hardwareScanLastAt || now - hardwareScanLastAt > HARDWARE_SCAN_MAX_GAP) {
+      resetHardwareScan();
+      hardwareScanStartedAt = now;
+      hardwareScanTarget = event.target;
+      if (
+        event.target instanceof HTMLInputElement
+        || event.target instanceof HTMLTextAreaElement
+      ) {
+        hardwareScanOriginalValue = event.target.value;
+      }
+    }
+
+    hardwareScanBuffer += event.key;
+    hardwareScanLastAt = now;
+
+    if (hardwareScanIdleTimer) window.clearTimeout(hardwareScanIdleTimer);
+    hardwareScanIdleTimer = window.setTimeout(() => {
+      hardwareScanIdleTimer = null;
+      commitHardwareScan();
+    }, HARDWARE_SCAN_IDLE_COMMIT);
+  }, { capture: true, signal: shortcutController.signal });
 
   const deviceClockTimer = window.setInterval(() => {
     const clock = $('#posDeviceClock');
