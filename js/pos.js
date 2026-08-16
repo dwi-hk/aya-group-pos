@@ -5,7 +5,7 @@ import { printReceipt } from './print.js';
 import { audit } from './audit.js';
 import { startScanner, stopScanner, scannerSupported } from './scanner.js';
 
-const PAGE_SIZE = 60;
+const PAGE_SIZE = 300;
 const SEARCH_DELAY = 180;
 const CASH_METHOD = 'TUNAI';
 const PAYMENT_METHODS = [
@@ -150,6 +150,11 @@ export async function renderPOS(ctx) {
               <input id="quickCode" autocomplete="off" placeholder="Ketik kode menu, lalu tekan Enter">
               <button id="scanButton" type="button" class="pos-pro-scan-button">📷 Scan Kamera <kbd>F8</kbd></button>
             </div>
+            <div id="lastScanResult" class="pos-pro-scan-result" data-state="ready" aria-live="polite">
+              <span>SIAP SCAN</span>
+              <strong>Scan barcode atau masukkan kode menu</strong>
+              <small>Item yang terbaca akan tampil jelas di sini dan langsung masuk ke nota.</small>
+            </div>
           </div>
 
           <div class="pos-pro-filter-row">
@@ -184,7 +189,12 @@ export async function renderPOS(ctx) {
 
         <aside class="pos-pro-panel pos-pro-receipt" aria-label="Nota berjalan">
           <header class="pos-pro-receipt-head">
-            <div><span>NOTA BERJALAN</span><strong id="draftInvoice">${escapeHTML(draftInvoice)}</strong></div>
+            <div class="pos-pro-receipt-identity"><span>NOTA BERJALAN</span><strong id="draftInvoice">${escapeHTML(draftInvoice)}</strong></div>
+            <div class="pos-pro-mart-total" aria-live="polite">
+              <span>TOTAL BELANJA</span>
+              <strong id="martTotalDisplay">Rp 0</strong>
+              <small id="martItemCount">0 item</small>
+            </div>
             <b>${escapeHTML(ctx.branch.code || ctx.branch.name)}</b>
           </header>
           <div class="pos-pro-operator">
@@ -211,6 +221,10 @@ export async function renderPOS(ctx) {
             <label id="shippingField" hidden>Ongkos Kirim
               <input id="shipping" inputmode="numeric" value="0" readonly>
               <small>Terisi otomatis; jarak di atas 5 km diisi setelah konfirmasi admin.</small>
+            </label>
+            <label id="manualShippingField" class="full pos-pro-manual-shipping" hidden>Ongkir Manual (&gt; 5 km)
+              <input id="manualShipping" type="number" inputmode="numeric" min="0" step="1000" value="0" placeholder="Masukkan ongkir manual">
+              <small>Khusus jarak lebih dari 5 km. Tarif 0–5 km tetap mengikuti ongkir otomatis yang sudah ada di sistem.</small>
             </label>
             <section id="deliveryOptions" class="pos-pro-delivery-options full" hidden>
               <div class="pos-pro-delivery-head">
@@ -361,6 +375,14 @@ export async function renderPOS(ctx) {
       <div class="pos-pro-change"><span>Kembalian</span><b>${rupiah(Math.max(0, paid - values.total))}</b></div>`;
     $('#paidAmountDisplay').textContent = rupiah(paid);
 
+    const martTotalDisplay = $('#martTotalDisplay');
+    const martItemCount = $('#martItemCount');
+    if (martTotalDisplay) martTotalDisplay.textContent = rupiah(values.total);
+    if (martItemCount) {
+      const itemCount = sum(cart, item => number(item.qty));
+      martItemCount.textContent = `${itemCount.toLocaleString('id-ID')} item`;
+    }
+
     const minimumStatus = $('#deliveryMinimumStatus');
     if (minimumStatus) {
       const isDelivery = $('#orderType').value === 'Delivery';
@@ -375,7 +397,7 @@ export async function renderPOS(ctx) {
         minimumStatus.textContent = 'Pilih jarak untuk melihat minimum belanja.';
       } else if (rate.adminConfirmation) {
         minimumStatus.dataset.state = 'waiting';
-        minimumStatus.textContent = 'Jarak lebih dari 5 km: konfirmasi dan isi ongkir dari admin.';
+        minimumStatus.textContent = 'Jarak lebih dari 5 km: isi ongkir manual sesuai konfirmasi admin.';
       } else if (values.subtotal >= rate.minimum) {
         minimumStatus.dataset.state = 'success';
         minimumStatus.textContent = `✓ Minimum belanja ${rupiah(rate.minimum)} sudah terpenuhi.`;
@@ -414,29 +436,40 @@ export async function renderPOS(ctx) {
     const locationReceived = $('#shareLocationReceived').checked;
     const bandId = $('#deliveryDistanceBand').value;
     const rate = DELIVERY_RATE_BY_ID.get(bandId);
+    const manualRate = Boolean(isDelivery && locationReceived && rate?.adminConfirmation);
 
-    $('#shippingField').hidden = !isDelivery;
+    $('#shippingField').hidden = !isDelivery || manualRate;
+    $('#manualShippingField').hidden = !manualRate;
     $('#deliveryOptions').hidden = !isDelivery;
     $('#deliveryDistanceBand').disabled = !isDelivery || !locationReceived;
 
     if (!isDelivery) {
       $('#shipping').value = '0';
+      $('#manualShipping').value = '0';
       $('#shipping').readOnly = true;
       $('#shareLocationReceived').checked = false;
       $('#deliveryDistanceBand').value = '';
       $('#deliveryRatePreview').textContent = 'Khusus Delivery';
     } else if (!locationReceived) {
       $('#shipping').value = '0';
+      $('#manualShipping').value = '0';
       $('#shipping').readOnly = true;
       $('#deliveryDistanceBand').value = '';
       $('#deliveryRatePreview').textContent = 'Tunggu Share Location';
     } else if (rate) {
       $('#shipping').readOnly = !rate.adminConfirmation;
-      $('#deliveryRatePreview').textContent = rate.adminConfirmation
-        ? `>5 km · Konfirmasi admin · ${rupiah(number($('#shipping').value))}`
-        : `${rate.distance} · ${rupiah(rate.fee)} · Min. ${rupiah(rate.minimum)}`;
+      if (rate.adminConfirmation) {
+        if (document.activeElement !== $('#manualShipping')) {
+          $('#manualShipping').value = String(number($('#shipping').value));
+        }
+        $('#deliveryRatePreview').textContent = `>5 km · Ongkir Manual · ${rupiah(number($('#shipping').value))}`;
+      } else {
+        $('#manualShipping').value = '0';
+        $('#deliveryRatePreview').textContent = `${rate.distance} · ${rupiah(rate.fee)} · Min. ${rupiah(rate.minimum)}`;
+      }
     } else {
       $('#shipping').value = '0';
+      $('#manualShipping').value = '0';
       $('#shipping').readOnly = true;
       $('#deliveryRatePreview').textContent = 'Pilih jarak';
     }
@@ -454,12 +487,15 @@ export async function renderPOS(ctx) {
     const bandId = $('#deliveryDistanceBand').value;
     const rate = DELIVERY_RATE_BY_ID.get(bandId);
 
-    if (rate) $('#shipping').value = String(rate.fee || 0);
+    if (rate) {
+      $('#shipping').value = String(rate.fee || 0);
+      if (!rate.adminConfirmation) $('#manualShipping').value = '0';
+    }
     syncDeliveryUI();
 
     if (rate?.adminConfirmation) {
-      $('#shipping').focus();
-      $('#shipping').select();
+      $('#manualShipping').focus();
+      $('#manualShipping').select();
     }
   };
 
@@ -555,6 +591,26 @@ export async function renderPOS(ctx) {
     });
   };
 
+  function showScanResult(product, code = '', state = 'success') {
+    const host = $('#lastScanResult');
+    if (!host) return;
+
+    if (product) {
+      host.dataset.state = state;
+      host.innerHTML = `
+        <span>✓ BARCODE TERBACA</span>
+        <strong>${escapeHTML(product.name)}</strong>
+        <small>${escapeHTML(String(code || product.barcode || product.code || product.id))} · ${rupiah(effectivePrice(product, $('#priceLevel').value))}</small>`;
+      return;
+    }
+
+    host.dataset.state = 'error';
+    host.innerHTML = `
+      <span>BARCODE TIDAK DITEMUKAN</span>
+      <strong>${escapeHTML(String(code || '-'))}</strong>
+      <small>Periksa barcode atau daftarkan kode tersebut di Master Barang &amp; Stok.</small>`;
+  }
+
   function addProduct(id) {
     const product = productById.get(String(id));
     if (!product) return;
@@ -577,12 +633,19 @@ export async function renderPOS(ctx) {
 
     selectedCartId = String(product.id);
     renderCart();
+
+    window.requestAnimationFrame(() => {
+      const selectedRow = [...ctx.host.querySelectorAll('#cartList [data-cart-item]')]
+        .find(row => String(row.dataset.cartItem) === String(product.id));
+      selectedRow?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+    });
   }
 
   renderProducts();
   renderCart();
   syncPaymentUI();
   syncDeliveryUI();
+  window.requestAnimationFrame(() => $('#quickCode')?.focus());
 
   const openMaster = () => {
     if (typeof ctx.navigate === 'function') ctx.navigate('master');
@@ -604,10 +667,13 @@ export async function renderPOS(ctx) {
     const product = productByQuickCode.get(code);
     if (product) {
       addProduct(product.id);
+      showScanResult(product, code);
       event.currentTarget.value = '';
+      event.currentTarget.focus();
       return;
     }
 
+    showScanResult(null, code, 'error');
     $('#productSearch').value = code;
     currentPage = 1;
     renderProducts();
@@ -684,6 +750,12 @@ export async function renderPOS(ctx) {
   $('#shipping').oninput = () => {
     renderSummary();
     if ($('#deliveryDistanceBand').value === 'over-5') syncDeliveryUI();
+  };
+  $('#manualShipping').oninput = () => {
+    if ($('#deliveryDistanceBand').value !== 'over-5') return;
+    $('#shipping').value = String(Math.max(0, number($('#manualShipping').value)));
+    renderSummary();
+    $('#deliveryRatePreview').textContent = `>5 km · Ongkir Manual · ${rupiah(number($('#shipping').value))}`;
   };
 
   $('#paymentMethod').onchange = syncPaymentUI;
@@ -975,9 +1047,11 @@ export async function renderPOS(ctx) {
 
     if (product) {
       addProduct(product.id);
+      showScanResult(product, code);
       return;
     }
 
+    showScanResult(null, code, 'error');
     $('#productSearch').value = code;
     currentPage = 1;
     renderProducts();

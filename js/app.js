@@ -11,7 +11,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js';
 import { setupPWA } from './pwa.js';
 import { renderDashboard } from './dashboard.js';
-import { renderPOS } from './pos.js?v=2.14.1';
+import { renderPOS } from './pos.js?v=2.15.0';
 import { renderMaster, renderDirectory } from './master.js';
 import { renderBranches, renderTransfers } from './branch.js';
 import {
@@ -35,6 +35,8 @@ const rootHost = document.querySelector('#viewHost');
 const nav = document.querySelector('#mainNav');
 const branchSelector = document.querySelector('#branchSelector');
 const sidebar = document.querySelector('#sidebar');
+const appShell = document.querySelector('#app');
+const sidebarReveal = document.querySelector('#sidebarReveal');
 
 let branches = [];
 let currentRoute = 'users';
@@ -486,6 +488,7 @@ async function navigate(requestedRoute, options = {}) {
     && innerWidth <= 760
   ) {
     sidebar.classList.remove('open');
+    syncSidebarLayout();
   }
 }
 
@@ -566,6 +569,20 @@ function updateConnection(detail = connectionInfo()) {
     : 'danger-text';
 }
 
+function syncSidebarLayout() {
+  const mobile = innerWidth <= 760;
+
+  if (mobile) {
+    appShell.classList.remove('sidebar-hidden');
+    sidebarReveal.hidden = sidebar.classList.contains('open');
+    return;
+  }
+
+  const hidden = sidebar.classList.contains('collapsed');
+  appShell.classList.toggle('sidebar-hidden', hidden);
+  sidebarReveal.hidden = !hidden;
+}
+
 nav.addEventListener('click', event => {
   const button = event.target.closest('[data-route]');
   if (!button) return;
@@ -585,11 +602,26 @@ branchSelector.addEventListener('change', () => {
   });
 });
 
-document.querySelector('#sidebarToggle').onclick = () => (
-  innerWidth <= 760
-    ? sidebar.classList.toggle('open')
-    : sidebar.classList.toggle('collapsed')
-);
+document.querySelector('#sidebarToggle').onclick = () => {
+  if (innerWidth <= 760) {
+    sidebar.classList.toggle('open');
+  } else {
+    sidebar.classList.toggle('collapsed');
+  }
+  syncSidebarLayout();
+};
+
+sidebarReveal.onclick = () => {
+  if (innerWidth <= 760) {
+    sidebar.classList.add('open');
+  } else {
+    sidebar.classList.remove('collapsed');
+  }
+  syncSidebarLayout();
+};
+
+window.addEventListener('resize', syncSidebarLayout);
+syncSidebarLayout();
 
 document.querySelector('#logoutButton').onclick = async () => {
   await signOut(auth);

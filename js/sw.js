@@ -1,4 +1,4 @@
-const CACHE = 'aya-pos-v2.7.1-navigation-fix';
+const CACHE = 'aya-pos-v2.15.2-barcode-catalog';
 const ASSETS = [
   './',
   './index.html',
@@ -9,6 +9,7 @@ const ASSETS = [
   './css/styles.css',
   './css/fixes-v2.5.css',
   './css/fixes-v2.6.css',
+  './css/kasir-mart-v2.15.1.css',
   './js/app.js',
   './js/aya-v2.6-fixes.js',
   './js/aya-v2.6.1-category-fix.js',
@@ -19,6 +20,7 @@ const ASSETS = [
   './js/legacy-adapter.js',
   './js/utils.js',
   './js/menu-data.js',
+  './js/barcode-catalog-v2.15.2.js',
   './js/dashboard.js',
   './js/pos.js',
   './js/master.js',

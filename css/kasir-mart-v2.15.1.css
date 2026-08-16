@@ -1,0 +1,700 @@
+/*
+ * AYA GROUP POS v2.15.0 - Kasir gaya minimarket / mart
+ * Hanya mengubah tampilan route Kasir / Penjualan (.aya-pos-pro).
+ * Semua fungsi, field, keterangan, tombol, dan proses transaksi lama tetap dipertahankan.
+ */
+
+/* ===== Area kerja kasir: kiri katalog, kanan nota / hitungan ===== */
+.aya-pos-pro {
+  padding: 10px 12px;
+}
+
+.aya-pos-pro .pos-pro-page-head {
+  gap: 12px;
+  margin-bottom: 9px;
+  padding: 0 2px 8px;
+}
+
+.aya-pos-pro .pos-pro-page-head h2 {
+  font-size: clamp(17px, 1.6vw, 22px);
+  margin: 2px 0;
+}
+
+.aya-pos-pro .pos-pro-page-head p {
+  font-size: 11px;
+}
+
+.aya-pos-pro .pos-pro-page-meta > * {
+  font-size: 10px;
+  padding: 6px 8px;
+}
+
+.aya-pos-pro .pos-pro-layout {
+  align-items: stretch;
+  gap: 10px;
+  grid-template-columns: minmax(350px, 1.18fr) minmax(390px, .82fr);
+  min-height: 0;
+}
+
+.aya-pos-pro .pos-pro-catalog,
+.aya-pos-pro .pos-pro-receipt {
+  border-radius: 12px;
+  min-height: 540px;
+  padding: 10px;
+}
+
+/* Katalog memiliki scroll sendiri; scanner dan filter tetap terlihat. */
+.aya-pos-pro .pos-pro-catalog {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 132px);
+  max-height: 920px;
+  overflow: hidden;
+}
+
+.aya-pos-pro .pos-pro-section-head {
+  flex: 0 0 auto;
+  margin-bottom: 7px;
+}
+
+.aya-pos-pro .pos-pro-section-head h3 {
+  font-size: 15px;
+}
+
+.aya-pos-pro .pos-pro-head-actions {
+  gap: 5px;
+}
+
+.aya-pos-pro .pos-pro-button,
+.aya-pos-pro .pos-pro-scan-button {
+  min-height: 34px;
+  padding: 6px 9px;
+}
+
+/* ===== Scanner besar dan selalu mudah dibaca ===== */
+.aya-pos-pro .pos-pro-code-box {
+  flex: 0 0 auto;
+  padding: 6px;
+}
+
+.aya-pos-pro .pos-pro-code-box > label {
+  margin-bottom: 4px;
+}
+
+.aya-pos-pro .pos-pro-code-box > div:first-of-type {
+  gap: 6px;
+}
+
+.aya-pos-pro .pos-pro-code-box input {
+  font-size: 18px;
+  min-height: 43px;
+  padding-block: 7px;
+}
+
+.aya-pos-pro .pos-pro-scan-button {
+  min-height: 43px;
+  min-width: 148px;
+}
+
+.aya-pos-pro .pos-pro-scan-result {
+  align-items: center;
+  background: #12151a;
+  border: 1px solid #343943;
+  border-left: 4px solid #717782;
+  border-radius: 8px;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  margin-top: 6px;
+  min-height: 34px;
+  padding: 5px 8px;
+}
+
+.aya-pos-pro .pos-pro-scan-result span {
+  color: #aeb3bd;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .05em;
+  white-space: nowrap;
+}
+
+.aya-pos-pro .pos-pro-scan-result strong {
+  color: #fff;
+  font-size: 12px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aya-pos-pro .pos-pro-scan-result small {
+  color: #aeb3bd;
+  font-size: 9px;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aya-pos-pro .pos-pro-scan-result[data-state="success"] {
+  background: #10251c;
+  border-color: #2f7659;
+  border-left-color: #46dfa3;
+}
+
+.aya-pos-pro .pos-pro-scan-result[data-state="success"] span,
+.aya-pos-pro .pos-pro-scan-result[data-state="success"] small {
+  color: #73e4b7;
+}
+
+.aya-pos-pro .pos-pro-scan-result[data-state="error"] {
+  background: #2a1819;
+  border-color: #71373a;
+  border-left-color: #ff7379;
+}
+
+.aya-pos-pro .pos-pro-scan-result[data-state="error"] span,
+.aya-pos-pro .pos-pro-scan-result[data-state="error"] small {
+  color: #ff9a9e;
+}
+
+/* ===== Filter tetap lengkap namun lebih rapat ===== */
+.aya-pos-pro .pos-pro-filter-row {
+  flex: 0 0 auto;
+  gap: 5px;
+  grid-template-columns: minmax(150px, 1fr) minmax(105px, .36fr) minmax(110px, .36fr) auto auto;
+  margin-top: 6px;
+}
+
+.aya-pos-pro .pos-pro-filter-row > *,
+.aya-pos-pro .pos-pro-filter-row input,
+.aya-pos-pro .pos-pro-filter-row select {
+  font-size: 10px;
+  min-height: 34px;
+}
+
+.aya-pos-pro .pos-pro-categories {
+  flex: 0 0 auto;
+  gap: 4px;
+  margin: 6px 0;
+}
+
+.aya-pos-pro .pos-pro-categories button {
+  font-size: 9px;
+  min-height: 29px;
+  padding: 5px 8px;
+}
+
+/* ===== Menu model minimarket: SATU BARIS, menurun, scroll vertikal ===== */
+.aya-pos-pro .pos-pro-product-grid {
+  background: #0f1115;
+  border: 1px solid #32363e;
+  border-radius: 8px;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-color: #8d4200 #15171b;
+  scrollbar-width: thin;
+}
+
+.aya-pos-pro .pos-pro-product-card {
+  align-items: center;
+  background: #17191e;
+  border: 0;
+  border-bottom: 1px solid #2c3037;
+  border-radius: 0;
+  display: grid;
+  flex: 0 0 auto;
+  gap: 7px;
+  grid-template-columns: 72px minmax(0, 1fr) minmax(105px, .62fr) 82px;
+  min-height: 38px;
+  padding: 4px 8px;
+  width: 100%;
+}
+
+.aya-pos-pro .pos-pro-product-card:nth-child(even) {
+  background: #1b1e24;
+}
+
+.aya-pos-pro .pos-pro-product-card:hover,
+.aya-pos-pro .pos-pro-product-card:active {
+  background: #33210f;
+  box-shadow: inset 3px 0 0 var(--pos-orange);
+  transform: none;
+}
+
+.aya-pos-pro .pos-pro-product-category {
+  border-radius: 5px;
+  font-size: 7.5px;
+  line-height: 1;
+  padding: 4px 5px;
+  text-align: center;
+}
+
+.aya-pos-pro .pos-pro-product-card strong {
+  font-size: 11.5px;
+  line-height: 1.15;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aya-pos-pro .pos-pro-product-card small {
+  color: #a8adb6;
+  font-size: 8.5px;
+  line-height: 1.1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aya-pos-pro .pos-pro-product-card b {
+  font-size: 11.5px;
+  margin: 0;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.aya-pos-pro .pos-pro-products-empty {
+  flex: 1 1 auto;
+  min-height: 180px;
+}
+
+.aya-pos-pro .pos-pro-pagination {
+  flex: 0 0 auto;
+  font-size: 9px;
+  margin-top: 5px;
+  padding-top: 5px;
+}
+
+.aya-pos-pro .pos-pro-pagination .pos-pro-button {
+  font-size: 9px;
+  min-height: 28px;
+  padding: 4px 7px;
+}
+
+.aya-pos-pro #productPageLabel {
+  font-size: 9px;
+  padding: 5px 8px;
+}
+
+/* ===== Nota kanan: tetap satu kolom di kanan pada tablet landscape ===== */
+.aya-pos-pro .pos-pro-receipt {
+  height: calc(100vh - 132px);
+  max-height: 920px;
+  overflow-y: auto;
+  position: sticky;
+  scrollbar-color: #8d4200 #15171b;
+  scrollbar-width: thin;
+  top: 8px;
+}
+
+.aya-pos-pro .pos-pro-receipt-head {
+  background: #15171b;
+  border-bottom: 1px solid #454952;
+  gap: 8px;
+  margin: -10px -10px 0;
+  padding: 7px 9px;
+  position: sticky;
+  top: -10px;
+  z-index: 8;
+}
+
+.aya-pos-pro .pos-pro-receipt-identity {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.aya-pos-pro .pos-pro-receipt-head > b {
+  flex: 0 0 auto;
+  font-size: 9px;
+  padding: 5px 6px;
+}
+
+/* Total besar selalu terlihat di kepala nota. */
+.aya-pos-pro .pos-pro-mart-total {
+  align-items: flex-end;
+  background: #24180c;
+  border: 1px solid #78420d;
+  border-radius: 8px;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  min-width: 128px;
+  padding: 5px 8px;
+}
+
+.aya-pos-pro .pos-pro-mart-total span {
+  color: #ffac4a;
+  font-size: 7.5px;
+  font-weight: 900;
+  letter-spacing: .06em;
+}
+
+.aya-pos-pro .pos-pro-mart-total strong {
+  color: #ff9220;
+  font-size: 18px;
+  line-height: 1.05;
+  white-space: nowrap;
+}
+
+.aya-pos-pro .pos-pro-mart-total small {
+  color: #c7c9cf;
+  font-size: 8px;
+}
+
+.aya-pos-pro .pos-pro-operator {
+  font-size: 9px;
+  padding: 6px 0;
+}
+
+.aya-pos-pro .pos-pro-customer {
+  margin-bottom: 6px;
+  padding: 7px;
+}
+
+.aya-pos-pro .pos-pro-customer-grid {
+  gap: 5px;
+}
+
+.aya-pos-pro .pos-pro-customer-grid label,
+.aya-pos-pro .pos-pro-order-grid label {
+  font-size: 8.5px;
+  gap: 3px;
+}
+
+.aya-pos-pro .pos-pro-customer-grid input,
+.aya-pos-pro .pos-pro-customer-grid textarea,
+.aya-pos-pro .pos-pro-order-grid input,
+.aya-pos-pro .pos-pro-order-grid select,
+.aya-pos-pro .pos-pro-order-grid textarea,
+.aya-pos-pro .pos-pro-discount input {
+  font-size: 10px;
+  min-height: 30px;
+  padding: 5px 7px;
+}
+
+.aya-pos-pro .pos-pro-customer-grid textarea,
+.aya-pos-pro .pos-pro-order-grid textarea {
+  min-height: 32px;
+}
+
+.aya-pos-pro .pos-pro-cart-heading {
+  font-size: 8px;
+  padding: 5px 7px;
+}
+
+.aya-pos-pro .pos-pro-cart-list {
+  margin-bottom: 6px;
+  max-height: clamp(135px, 24vh, 235px);
+  min-height: 120px;
+}
+
+.aya-pos-pro .pos-pro-cart-empty {
+  min-height: 118px;
+}
+
+.aya-pos-pro .pos-pro-cart-row {
+  gap: 6px;
+  min-height: 36px;
+  padding: 5px 7px;
+}
+
+.aya-pos-pro .pos-pro-cart-row.is-selected {
+  animation: posMartFlash .55s ease-out;
+}
+
+@keyframes posMartFlash {
+  0% { background: #7a430e; }
+  100% { background: #33210f; }
+}
+
+.aya-pos-pro .pos-pro-cart-copy {
+  gap: 6px;
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.aya-pos-pro .pos-pro-cart-copy strong {
+  font-size: 10.5px;
+  max-width: 48%;
+}
+
+.aya-pos-pro .pos-pro-cart-copy small {
+  font-size: 8.5px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.aya-pos-pro .pos-pro-cart-copy b {
+  font-size: 9.5px;
+}
+
+.aya-pos-pro .pos-pro-qty-controls {
+  gap: 3px;
+  grid-template-columns: 27px 20px 27px;
+}
+
+.aya-pos-pro .pos-pro-qty-controls button {
+  border-radius: 6px;
+  font-size: 14px;
+  height: 27px;
+}
+
+.aya-pos-pro .pos-pro-order-grid {
+  gap: 5px;
+}
+
+.aya-pos-pro .pos-pro-item-actions {
+  gap: 4px;
+  margin: 5px 0;
+}
+
+.aya-pos-pro .pos-pro-item-actions .pos-pro-button {
+  font-size: 8.5px;
+  min-height: 29px;
+  padding: 4px;
+}
+
+.aya-pos-pro .pos-pro-discount {
+  font-size: 9px;
+  grid-template-columns: 78px 1fr;
+  margin-bottom: 5px;
+  padding: 4px 6px;
+}
+
+.aya-pos-pro .pos-pro-summary {
+  margin: 5px 0;
+  padding: 6px 8px;
+}
+
+.aya-pos-pro .pos-pro-summary > div {
+  font-size: 9px;
+  padding: 1px 0;
+}
+
+.aya-pos-pro .pos-pro-summary .pos-pro-total {
+  font-size: 13px;
+  margin-top: 3px;
+  padding-top: 4px;
+}
+
+.aya-pos-pro .pos-pro-summary .pos-pro-total b {
+  font-size: 16px;
+}
+
+.aya-pos-pro .pos-pro-payment-buttons {
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.aya-pos-pro .pos-pro-payment-buttons button {
+  font-size: 8px;
+  min-height: 40px;
+  padding: 4px 3px;
+}
+
+.aya-pos-pro .pos-pro-payment-buttons button span {
+  font-size: 12px;
+}
+
+.aya-pos-pro .pos-pro-paid-field {
+  font-size: 9px;
+  margin-top: 5px;
+  padding: 5px;
+}
+
+.aya-pos-pro .pos-pro-paid-input input,
+.aya-pos-pro .pos-pro-paid-input strong {
+  min-height: 31px;
+  padding-block: 6px;
+}
+
+.aya-pos-pro .pos-pro-cash-shortcuts {
+  gap: 3px;
+}
+
+.aya-pos-pro .pos-pro-cash-shortcuts button {
+  font-size: 7.5px;
+  min-height: 24px;
+}
+
+.aya-pos-pro .pos-pro-footer-actions {
+  gap: 4px;
+  margin-top: 6px;
+  padding-top: 6px;
+}
+
+.aya-pos-pro .pos-pro-footer-actions .pos-pro-button,
+.aya-pos-pro .pos-pro-footer-actions .secondary-button {
+  font-size: 9px;
+  min-height: 36px;
+}
+
+.aya-pos-pro .pos-pro-save {
+  font-size: 11px !important;
+}
+
+/* Tablet / layar kasir: tetap dua panel selama masih realistis. */
+@media (min-width: 721px) and (max-width: 1180px) {
+  .aya-pos-pro {
+    margin: -12px;
+    padding: 8px;
+  }
+
+  .aya-pos-pro .pos-pro-page-head {
+    margin-bottom: 6px;
+  }
+
+  .aya-pos-pro .pos-pro-layout {
+    gap: 7px;
+    grid-template-columns: minmax(330px, 1.08fr) minmax(330px, .92fr);
+  }
+
+  .aya-pos-pro .pos-pro-catalog,
+  .aya-pos-pro .pos-pro-receipt {
+    height: calc(100vh - 118px);
+    min-height: 500px;
+    padding: 7px;
+  }
+
+  .aya-pos-pro .pos-pro-receipt-head {
+    margin: -7px -7px 0;
+    top: -7px;
+  }
+
+  .aya-pos-pro .pos-pro-section-head h3 {
+    font-size: 13px;
+  }
+
+  .aya-pos-pro .pos-pro-filter-row {
+    grid-template-columns: minmax(140px, 1fr) minmax(96px, .45fr) minmax(102px, .45fr);
+  }
+
+  .aya-pos-pro .pos-pro-filter-row .pos-pro-button {
+    grid-row: 2;
+  }
+
+  .aya-pos-pro .pos-pro-product-card {
+    gap: 5px;
+    grid-template-columns: 56px minmax(0, 1fr) minmax(80px, .55fr) 70px;
+    padding-inline: 6px;
+  }
+
+  .aya-pos-pro .pos-pro-product-category {
+    font-size: 6.8px;
+    padding-inline: 3px;
+  }
+
+  .aya-pos-pro .pos-pro-product-card strong {
+    font-size: 10.5px;
+  }
+
+  .aya-pos-pro .pos-pro-product-card small {
+    font-size: 7.7px;
+  }
+
+  .aya-pos-pro .pos-pro-product-card b {
+    font-size: 10.5px;
+  }
+
+  .aya-pos-pro .pos-pro-scan-result {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .aya-pos-pro .pos-pro-scan-result small {
+    grid-column: 1 / -1;
+    text-align: left;
+  }
+
+  .aya-pos-pro .pos-pro-mart-total {
+    min-width: 112px;
+  }
+
+  .aya-pos-pro .pos-pro-mart-total strong {
+    font-size: 15px;
+  }
+}
+
+/* HP: tetap mengikuti pola lama satu kolom agar tidak terlalu sempit. */
+@media (max-width: 720px) {
+  .aya-pos-pro .pos-pro-catalog,
+  .aya-pos-pro .pos-pro-receipt {
+    height: auto;
+    max-height: none;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .aya-pos-pro .pos-pro-receipt {
+    position: static;
+  }
+
+  .aya-pos-pro .pos-pro-product-grid {
+    display: flex;
+    max-height: 58vh;
+    min-height: 280px;
+    overflow-y: auto;
+  }
+
+  .aya-pos-pro .pos-pro-product-card {
+    gap: 4px;
+    grid-template-columns: 46px minmax(0, 1fr) 72px 58px;
+    min-height: 42px;
+    padding-inline: 5px;
+  }
+
+  .aya-pos-pro .pos-pro-product-card small {
+    display: block;
+    font-size: 7px;
+  }
+
+  .aya-pos-pro .pos-pro-product-card b {
+    font-size: 9px;
+  }
+
+  .aya-pos-pro .pos-pro-scan-result {
+    grid-template-columns: 1fr;
+  }
+
+  .aya-pos-pro .pos-pro-scan-result small {
+    text-align: left;
+  }
+
+  .aya-pos-pro .pos-pro-receipt-head {
+    position: static;
+  }
+}
+
+
+/* v2.15.1 - Ongkir manual khusus jarak > 5 km. */
+.aya-pos-pro .pos-pro-manual-shipping {
+  background: rgba(245,124,0,.08);
+  border: 1px solid rgba(245,124,0,.42);
+  border-radius: 10px;
+  color: #ffd3a1;
+  padding: 9px 10px;
+}
+.aya-pos-pro .pos-pro-manual-shipping input {
+  background: #0f1115;
+  border: 2px solid #f57c00;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 900;
+  margin-top: 4px;
+  min-height: 44px;
+}
+.aya-pos-pro .pos-pro-manual-shipping small {
+  color: #d6b691;
+  display: block;
+  font-size: 9px;
+  line-height: 1.35;
+  margin-top: 5px;
+}

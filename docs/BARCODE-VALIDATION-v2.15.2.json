@@ -1,0 +1,48 @@
+{
+  "version": "2.15.2",
+  "source_pdf": "BARCODE_AYA_2_HALAMAN_A4_URUT_KATEGORI_FIX.pdf",
+  "total_records": 129,
+  "category_counts": {
+    "MAKANAN": 41,
+    "TOPPING": 43,
+    "JAJANAN": 11,
+    "MINUMAN PANAS": 12,
+    "MINUMAN DINGIN": 22
+  },
+  "ean13_checksum_valid": 129,
+  "unique_barcodes": 129,
+  "unique_ids": 129,
+  "duplicate_barcodes": [],
+  "duplicate_ids": [],
+  "ambiguous_duplicate_names": {
+    "kita": [
+      {
+        "id": "-OzKLq4Hs_Sg6CaO3QyD",
+        "name": "KIta",
+        "barcode": "2900097576281"
+      },
+      {
+        "id": "-OzKLrqZxmAi9ZS2V8xe",
+        "name": "KIta",
+        "barcode": "2905458935561"
+      }
+    ],
+    "es teh": [
+      {
+        "id": "301",
+        "name": "Es Teh",
+        "barcode": "2900000003019"
+      },
+      {
+        "id": "es-teh",
+        "name": "Es Teh",
+        "barcode": "2902313678588"
+      }
+    ]
+  },
+  "matching_policy": [
+    "ID exact match first for all database products",
+    "normalized name fallback only for known built-in fallback product IDs",
+    "duplicate names are never auto-matched by name"
+  ]
+}

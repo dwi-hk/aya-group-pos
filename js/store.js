@@ -15,6 +15,7 @@ import {
   onAuthStateChanged
 } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js';
 import { fallbackProducts, fallbackBranches } from './menu-data.js';
+import { applyAyaBarcodeCatalog } from './barcode-catalog-v2.15.2.js';
 import { toArray, uid, number } from './utils.js';
 import {
   DEFAULT_BRANCH_ID,
@@ -377,7 +378,7 @@ function normalizeProduct(raw, id, branches = [], meta = {}) {
       ? branchStockValues.reduce((total, value) => total + value, 0)
       : 0;
 
-  return {
+  return applyAyaBarcodeCatalog({
     ...cleanInternal(raw),
     id: String(raw.id || id),
     name: raw.name || raw.nama || raw.namaBarang || raw.menu || 'Tanpa nama',
@@ -404,7 +405,7 @@ function normalizeProduct(raw, id, branches = [], meta = {}) {
     _legacyPath: meta.legacyPath || raw._legacyPath || '',
     _legacyStockPath: meta.legacyStockPath || raw._legacyStockPath || '',
     _legacyBranchStockPaths: meta.legacyBranchStockPaths || raw._legacyBranchStockPaths || {}
-  };
+  });
 }
 
 export async function getBranches({ force = false } = {}) {

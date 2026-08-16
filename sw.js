@@ -1,4 +1,4 @@
-const CACHE = 'aya-pos-v2.14.10-edit-cari-kontak-operasional';
+const CACHE = 'aya-pos-v2.15.2-barcode-catalog';
 
 const ASSETS = [
   './',
@@ -14,6 +14,7 @@ const ASSETS = [
   './css/master-profit-v2.10.6.css',
   './css/kasir-gaji-v2.11.3.css',
   './css/kasir-profesional-v2.12.0.css',
+  './css/kasir-mart-v2.15.1.css',
   './js/app.js',
   './js/aya-v2.6-fixes.js',
   './js/aya-v2.6.1-category-fix.js',
@@ -24,6 +25,7 @@ const ASSETS = [
   './js/legacy-adapter.js',
   './js/utils.js',
   './js/menu-data.js',
+  './js/barcode-catalog-v2.15.2.js',
   './js/dashboard.js',
   './js/pos.js',
   './js/payroll-v2.11.3.js',

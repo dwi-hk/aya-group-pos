@@ -13,3 +13,52 @@ body.auth-locked .view-host>.grid.two{display:block}
 body.auth-locked .view-host>.grid.two>article:first-child{box-shadow:0 24px 70px rgba(0,0,0,.45)}
 body.auth-locked .view-host>.grid.two>article:nth-child(2){display:none}
 body.auth-locked #alertHost{position:fixed}
+
+
+/* v2.15.1 - Sidebar benar-benar memberi ruang kembali ke halaman saat disembunyikan. */
+.sidebar-reveal-button{
+  align-items:center;
+  background:linear-gradient(135deg,var(--orange),var(--orange2));
+  border:0;
+  border-radius:10px;
+  color:#17100a;
+  cursor:pointer;
+  display:flex;
+  font-size:20px;
+  font-weight:900;
+  height:38px;
+  justify-content:center;
+  left:10px;
+  padding:0;
+  position:fixed;
+  top:12px;
+  width:40px;
+  z-index:70;
+  box-shadow:var(--shadow);
+}
+.sidebar-reveal-button[hidden]{display:none!important}
+
+@media(min-width:761px){
+  .app-shell{transition:grid-template-columns .25s ease}
+  .app-shell.sidebar-hidden{grid-template-columns:0 minmax(0,1fr)}
+  .app-shell.sidebar-hidden .sidebar{
+    border-right:0;
+    min-width:0;
+    opacity:0;
+    overflow:hidden;
+    pointer-events:none;
+    width:0;
+  }
+  .app-shell.sidebar-hidden .main-content{
+    max-width:none;
+    min-width:0;
+    width:100%;
+  }
+  .app-shell.sidebar-hidden .topbar{padding-left:48px}
+}
+
+@media(max-width:760px){
+  .sidebar-reveal-button{left:8px;top:10px}
+  .sidebar:not(.open) + .main-content .topbar{padding-left:44px}
+}
+body.auth-locked .sidebar-reveal-button{display:none!important}
