@@ -110,11 +110,11 @@ Menu **Kas & Rekonsiliasi** memisahkan metode pembayaran dengan aturan berikut:
 
 Data lama yang tidak memiliki metode pembayaran pada pengeluaran dianggap **TUNAI**, karena export lama tidak menyediakan informasi metode. Periksa kembali bila sebagian pengeluaran lama sebenarnya dibayar melalui QRIS atau hutang.
 
-## Printer thermal 58 mm
+## Printer thermal 58 mm - Rongta RPP02N
 
 - Cetak standar memakai dialog cetak browser dan layout 58 mm.
 - Web Bluetooth hanya bekerja pada HTTPS dan browser/perangkat yang mendukung.
-- UUID service/characteristic berbeda untuk tiap printer dan harus diuji pada perangkat asli.
+- Preset AYA memakai Rongta RPP02N melalui Bluetooth Classic SPP/RFCOMM + ESC/POS. Web Bluetooth BLE bukan jalur utama untuk RPP02N.
 - Bila printer tidak menyediakan layanan GATT yang dapat ditulis browser, gunakan dialog cetak Android/PC atau driver resmi printer.
 
 ## Scanner

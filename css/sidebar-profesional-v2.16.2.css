@@ -1,0 +1,248 @@
+/* AYA GROUP POS v2.16.2 — sidebar/navigation professional polish.
+   Visual-only navigation refinement. Route IDs, labels, permissions and features remain unchanged. */
+
+:root{
+  --sidebar:284px;
+  --nav-accent:#f57c00;
+  --nav-accent-soft:rgba(245,124,0,.13);
+  --nav-border:rgba(255,255,255,.075);
+  --nav-hover:rgba(255,255,255,.055);
+}
+
+.sidebar{
+  background:
+    radial-gradient(circle at 12% 0%, rgba(245,124,0,.10), transparent 26%),
+    linear-gradient(180deg,#17191e 0%,#111216 58%,#0e0f12 100%);
+  border-right:1px solid var(--nav-border);
+  box-shadow:10px 0 34px rgba(0,0,0,.12);
+}
+
+.brand{
+  min-height:76px;
+  gap:10px;
+  padding:14px 13px;
+  border-bottom:1px solid var(--nav-border);
+  background:rgba(255,255,255,.015);
+}
+
+.brand .icon-button{
+  width:38px;
+  height:38px;
+  padding:0;
+  display:grid;
+  place-items:center;
+  color:#fff;
+  border:1px solid rgba(255,255,255,.09);
+  border-radius:11px;
+  background:rgba(255,255,255,.035);
+  transition:background .18s ease,border-color .18s ease,transform .18s ease;
+}
+
+.brand .icon-button:hover{
+  background:var(--nav-accent-soft);
+  border-color:rgba(245,124,0,.38);
+  transform:translateY(-1px);
+}
+
+.brand-copy{gap:2px;line-height:1.05}
+.brand-copy strong{
+  color:#fff;
+  font-size:.96rem;
+  letter-spacing:.045em;
+}
+.brand-copy strong::first-letter{color:var(--orange2)}
+.brand-copy span{
+  font-size:.60rem;
+  color:#858b96;
+  letter-spacing:.19em;
+}
+
+.main-nav{
+  display:block;
+  padding:10px 9px 18px;
+  overflow-y:auto;
+  overflow-x:hidden;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(245,124,0,.30) transparent;
+}
+.main-nav::-webkit-scrollbar{width:5px}
+.main-nav::-webkit-scrollbar-track{background:transparent}
+.main-nav::-webkit-scrollbar-thumb{background:rgba(245,124,0,.30);border-radius:10px}
+
+.nav-section{margin:0 0 14px}
+.nav-section:last-child{margin-bottom:2px}
+.nav-section-title{
+  padding:7px 11px 6px;
+  color:#737985;
+  font-size:.61rem;
+  line-height:1;
+  font-weight:800;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  white-space:nowrap;
+}
+.nav-section-items{display:grid;gap:4px}
+
+.nav-item{
+  position:relative;
+  display:grid;
+  grid-template-columns:34px minmax(0,1fr) 15px;
+  align-items:center;
+  gap:9px;
+  min-height:44px;
+  width:100%;
+  padding:5px 9px 5px 7px;
+  border:1px solid transparent;
+  border-radius:11px;
+  background:transparent;
+  color:#aeb3bd;
+  cursor:pointer;
+  text-align:left;
+  overflow:hidden;
+  transition:
+    color .16s ease,
+    background .16s ease,
+    border-color .16s ease,
+    transform .16s ease,
+    box-shadow .16s ease;
+}
+
+.nav-item::before{
+  content:"";
+  position:absolute;
+  left:0;
+  top:9px;
+  bottom:9px;
+  width:3px;
+  border-radius:0 3px 3px 0;
+  background:transparent;
+}
+
+.nav-item:hover{
+  color:#f5f6f8;
+  background:var(--nav-hover);
+  border-color:rgba(255,255,255,.055);
+  transform:translateX(2px);
+}
+
+.nav-item.active,
+.nav-item[aria-current="page"]{
+  color:#fff;
+  background:linear-gradient(90deg,rgba(245,124,0,.18),rgba(245,124,0,.075));
+  border-color:rgba(245,124,0,.24);
+  box-shadow:0 6px 18px rgba(0,0,0,.12);
+}
+
+.nav-item.active::before,
+.nav-item[aria-current="page"]::before{
+  background:linear-gradient(180deg,var(--orange2),var(--orange));
+  box-shadow:0 0 10px rgba(245,124,0,.35);
+}
+
+.nav-icon{
+  width:32px;
+  height:32px;
+  min-width:32px;
+  display:grid;
+  place-items:center;
+  border-radius:9px;
+  background:rgba(255,255,255,.045);
+  border:1px solid rgba(255,255,255,.045);
+  font-size:1rem;
+  line-height:1;
+  filter:saturate(.9);
+}
+
+.nav-item.active .nav-icon,
+.nav-item[aria-current="page"] .nav-icon{
+  background:rgba(245,124,0,.15);
+  border-color:rgba(245,124,0,.22);
+}
+
+.nav-label{
+  display:block;
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-size:.82rem;
+  line-height:1.2;
+  font-weight:650;
+}
+
+.nav-chevron{
+  color:#555c67;
+  font-size:1.12rem;
+  line-height:1;
+  text-align:right;
+  transform:translateX(-1px);
+  transition:color .16s ease,transform .16s ease;
+}
+.nav-item:hover .nav-chevron{color:#a9afb9;transform:translateX(1px)}
+.nav-item.active .nav-chevron,
+.nav-item[aria-current="page"] .nav-chevron{color:var(--orange2)}
+
+.sidebar-footer{
+  padding:12px 12px 13px;
+  gap:9px;
+  border-top:1px solid var(--nav-border);
+  background:rgba(0,0,0,.10);
+}
+.sidebar-footer small{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  min-height:22px;
+  padding:0 5px;
+  color:#858b96;
+  font-size:.68rem;
+  line-height:1.25;
+}
+.sidebar-footer small::before{
+  content:"";
+  flex:0 0 auto;
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  background:#42b883;
+  box-shadow:0 0 0 3px rgba(66,184,131,.10);
+}
+.sidebar-footer .ghost-button{
+  width:100%;
+  padding:9px 11px;
+  border:1px solid rgba(255,255,255,.07);
+  border-radius:10px;
+  background:rgba(255,255,255,.025);
+  color:#aeb3bd;
+  font-size:.78rem;
+  font-weight:650;
+  text-align:left;
+}
+.sidebar-footer .ghost-button:hover{
+  color:#fff;
+  border-color:rgba(239,83,80,.25);
+  background:rgba(239,83,80,.08);
+}
+
+/* Keep the existing full-screen sidebar hide behavior intact. */
+.app-shell.sidebar-hidden .nav-section-title,
+.app-shell.sidebar-hidden .nav-chevron{display:none}
+
+@media(max-width:760px){
+  :root{--sidebar:276px}
+  .sidebar{box-shadow:18px 0 48px rgba(0,0,0,.42)}
+  .brand{min-height:70px}
+  .main-nav{padding-bottom:24px}
+  .nav-item{min-height:46px}
+  .nav-label{font-size:.84rem}
+  .nav-section{margin-bottom:12px}
+}
+
+@media(max-height:720px) and (min-width:761px){
+  .brand{min-height:64px;padding-top:10px;padding-bottom:10px}
+  .main-nav{padding-top:7px}
+  .nav-section{margin-bottom:9px}
+  .nav-section-title{padding-top:5px;padding-bottom:5px}
+  .nav-item{min-height:40px}
+  .nav-icon{width:29px;height:29px;min-width:29px}
+}

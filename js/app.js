@@ -51,6 +51,53 @@ let user = {
 
 localStorage.removeItem('aya.session');
 
+const navGroups = [
+  {
+    id: 'transaksi',
+    label: 'Transaksi',
+    icon: '🧾',
+    routes: ['pos', 'sales', 'purchases', 'transfers']
+  },
+  {
+    id: 'barang',
+    label: 'Barang & Stok',
+    icon: '📦',
+    routes: ['master', 'inventory', 'consignments']
+  },
+  {
+    id: 'relasi',
+    label: 'Pelanggan & Supplier',
+    icon: '👥',
+    routes: ['customers', 'suppliers', 'debts']
+  },
+  {
+    id: 'karyawan',
+    label: 'Karyawan',
+    icon: '🧑‍🍳',
+    routes: ['employees', 'attendance', 'documents']
+  },
+  {
+    id: 'keuangan',
+    label: 'Keuangan & Laporan',
+    icon: '📈',
+    routes: ['operations', 'cash', 'reports']
+  },
+  {
+    id: 'operasional',
+    label: 'Operasional',
+    icon: '🏪',
+    routes: ['dashboard', 'kitchen', 'calculator']
+  },
+  {
+    id: 'administrasi',
+    label: 'Administrasi',
+    icon: '⚙️',
+    routes: ['branches', 'settings', 'users']
+  }
+];
+
+let openNavGroup = localStorage.getItem('aya.nav.group') || 'transaksi';
+
 const routes = {
   dashboard: {
     icon: '📊',
@@ -62,11 +109,22 @@ const routes = {
   },
   pos: {
     icon: '🧾',
-    label: 'Kasir / Penjualan',
+    label: 'Kasir',
     title: 'Kasir',
     subtitle: 'Transaksi cepat, pembayaran, nota, dan pesanan tertahan',
     roles: ['owner', 'supervisor', 'cashier'],
     render: renderPOS
+  },
+  sales: {
+    icon: '🧮',
+    label: 'Penjualan',
+    title: 'Penjualan',
+    subtitle: 'Riwayat nota dan transaksi penjualan',
+    roles: ['owner', 'supervisor'],
+    render: context => renderReports({
+      ...context,
+      initialSalesTab: 'notes'
+    })
   },
   master: {
     icon: '📦',
@@ -325,6 +383,12 @@ function resolveRoute(route) {
   return route;
 }
 
+function activeNavGroupId() {
+  return navGroups.find(group =>
+    group.routes.includes(currentRoute)
+  )?.id || '';
+}
+
 function buildNav() {
   const locked = user.role === 'guest';
 
@@ -332,17 +396,72 @@ function buildNav() {
   branchSelector.hidden = locked;
   document.querySelector('#logoutButton').hidden = locked;
 
-  nav.innerHTML = Object.entries(routes)
-    .filter(([, route]) => route.roles.includes(user.role))
-    .map(([id, route]) => `
-      <button
-        type="button"
-        class="nav-item ${id === currentRoute ? 'active' : ''}"
-        data-route="${id}"
-      >
-        <span class="nav-icon">${route.icon}</span>
-        <span class="nav-label">${route.label}</span>
-      </button>`)
+  const allowedRoutes = new Set(
+    Object.entries(routes)
+      .filter(([, route]) => route.roles.includes(user.role))
+      .map(([id]) => id)
+  );
+
+  const activeGroup = activeNavGroupId();
+
+  if (activeGroup) {
+    openNavGroup = activeGroup;
+    localStorage.setItem('aya.nav.group', activeGroup);
+  }
+
+  nav.innerHTML = navGroups
+    .map(group => {
+      const visibleRouteIds = group.routes
+        .filter(id => allowedRoutes.has(id));
+
+      if (!visibleRouteIds.length) return '';
+
+      const groupActive = visibleRouteIds.includes(currentRoute);
+      const open = group.id === openNavGroup;
+
+      const items = visibleRouteIds
+        .map(id => {
+          const route = routes[id];
+          const active = id === currentRoute;
+
+          return `
+            <button
+              type="button"
+              class="nav-item nav-subitem ${active ? 'active' : ''}"
+              data-route="${id}"
+              title="${route.label}"
+              aria-current="${active ? 'page' : 'false'}"
+            >
+              <span class="nav-icon" aria-hidden="true">${route.icon}</span>
+              <span class="nav-label">${route.label}</span>
+              <span class="nav-chevron" aria-hidden="true">›</span>
+            </button>`;
+        })
+        .join('');
+
+      return `
+        <section
+          class="nav-section ${open ? 'open' : ''} ${groupActive ? 'active-group' : ''}"
+          data-nav-group="${group.id}"
+        >
+          <button
+            type="button"
+            class="nav-parent ${groupActive ? 'active' : ''}"
+            data-nav-parent="${group.id}"
+            aria-expanded="${open ? 'true' : 'false'}"
+            aria-controls="nav-group-${group.id}"
+          >
+            <span class="nav-parent-icon" aria-hidden="true">${group.icon}</span>
+            <span class="nav-parent-label">${group.label}</span>
+            <span class="nav-parent-chevron" aria-hidden="true">⌄</span>
+          </button>
+          <div
+            id="nav-group-${group.id}"
+            class="nav-section-items"
+            ${open ? '' : 'hidden'}
+          >${items}</div>
+        </section>`;
+    })
     .join('');
 
   document.querySelector('#currentUserBadge').textContent =
@@ -584,6 +703,38 @@ function syncSidebarLayout() {
 }
 
 nav.addEventListener('click', event => {
+  const parent = event.target.closest('[data-nav-parent]');
+
+  if (parent) {
+    event.preventDefault();
+
+    const groupId = parent.dataset.navParent;
+    const section = parent.closest('.nav-section');
+    const items = section?.querySelector('.nav-section-items');
+    const willOpen = !section?.classList.contains('open');
+
+    nav.querySelectorAll('.nav-section').forEach(group => {
+      const groupItems = group.querySelector('.nav-section-items');
+      const groupButton = group.querySelector('[data-nav-parent]');
+      group.classList.remove('open');
+      if (groupItems) groupItems.hidden = true;
+      if (groupButton) groupButton.setAttribute('aria-expanded', 'false');
+    });
+
+    if (willOpen && section && items) {
+      section.classList.add('open');
+      items.hidden = false;
+      parent.setAttribute('aria-expanded', 'true');
+      openNavGroup = groupId;
+      localStorage.setItem('aya.nav.group', groupId);
+    } else {
+      openNavGroup = '';
+      localStorage.removeItem('aya.nav.group');
+    }
+
+    return;
+  }
+
   const button = event.target.closest('[data-route]');
   if (!button) return;
 

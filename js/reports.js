@@ -383,7 +383,7 @@ export async function renderReports(ctx) {
 
   const initial = presetRange('thisMonth');
 
-  let activeTab = 'summary';
+  let activeTab = ctx.initialSalesTab || 'summary';
   let filteredSales = [];
   let notePage = 1;
   let itemPage = 1;
@@ -1565,9 +1565,9 @@ export async function renderReports(ctx) {
       document.querySelector('#appDialog').close();
     };
 
-    document.querySelector('#salesDetailPrint').onclick = () => {
+    document.querySelector('#salesDetailPrint').onclick = async () => {
       try {
-        printReceipt(normalizedSale);
+        await Promise.resolve(printReceipt(normalizedSale));
       } catch (error) {
         ctx.notify(error.message || 'Nota gagal dicetak.', 'error');
       }
@@ -1789,7 +1789,7 @@ export async function renderReports(ctx) {
     });
   });
 
-  host.addEventListener('click', event => {
+  host.addEventListener('click', async event => {
     const tab = event.target.closest('[data-sales-tab]');
 
     if (tab) {
@@ -1856,7 +1856,7 @@ export async function renderReports(ctx) {
 
       if (printButton) {
         try {
-          printReceipt(normalizeReceiptSale(sale));
+          await Promise.resolve(printReceipt(normalizeReceiptSale(sale)));
         } catch (error) {
           ctx.notify(error.message || 'Nota gagal dicetak.', 'error');
         }

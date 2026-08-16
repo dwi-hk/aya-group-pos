@@ -1,4 +1,4 @@
-const CACHE = 'aya-pos-v2.15.3-scan-autocart';
+const CACHE = 'aya-pos-v2.16.3-hierarchical-tabs';
 
 const ASSETS = [
   './',
@@ -15,6 +15,7 @@ const ASSETS = [
   './css/kasir-gaji-v2.11.3.css',
   './css/kasir-profesional-v2.12.0.css',
   './css/kasir-mart-v2.15.1.css',
+  './css/sidebar-hierarchy-v2.16.3.css',
   './js/app.js',
   './js/aya-v2.6-fixes.js',
   './js/aya-v2.6.1-category-fix.js',
@@ -44,6 +45,7 @@ const ASSETS = [
   './js/print.js',
   './js/scanner.js',
   './js/bluetooth.js',
+  './js/direct-printer-v2.16.1.js',
   './js/pwa.js',
   './js/audit.js'
 ];

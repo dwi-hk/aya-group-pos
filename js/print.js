@@ -4,6 +4,7 @@ import {
   download
 } from './utils.js';
 import { getOnce } from './store.js';
+import { printDirectReceipt } from './direct-printer-v2.16.1.js';
 
 function localSettings() {
   try {
@@ -225,10 +226,10 @@ function writeReceipt(windowReference, sale, settings) {
   windowReference.document.close();
 }
 
-export function printReceipt(sale) {
+function browserPrintReceipt(sale) {
   /*
-   * Pop-up harus dibuka langsung saat tombol ditekan agar tidak diblokir
-   * browser. Pengaturan Firebase dimuat setelah jendela berhasil dibuka.
+   * Jalur cetak browser lama tetap dipertahankan sebagai pilihan manual.
+   * Pop-up dibuka langsung saat tombol ditekan agar tidak diblokir browser.
    */
   const printWindow = window.open(
     '',
@@ -284,6 +285,35 @@ export function printReceipt(sale) {
     });
 
   return printWindow;
+}
+
+export function printReceipt(sale) {
+  const local = normalizeSettings(localSettings());
+  const mode = String(local.directPrinterMode || 'auto').toLowerCase();
+
+  // Mode browser mempertahankan mekanisme cetak lama dengan dialog sistem.
+  if (mode === 'browser') {
+    return browserPrintReceipt(sale);
+  }
+
+  /*
+   * Direct printer tidak membuka jendela cetak. Data ESC/POS dikirim
+   * langsung ke printer yang sudah diizinkan lewat Web Serial / Web Bluetooth.
+   * Pengaturan Firebase tetap dimuat agar header/alamat/footer nota konsisten.
+   */
+  return getOnce('businessSettings')
+    .catch(error => {
+      console.warn(
+        'Pengaturan Firebase gagal dimuat untuk direct printer. Memakai data lokal:',
+        error
+      );
+      return {};
+    })
+    .then(databaseSettings => {
+      const settings = normalizeSettings(databaseSettings || {});
+      saveLocalSettings(settings);
+      return printDirectReceipt(sale, settings);
+    });
 }
 
 export function printLabel(

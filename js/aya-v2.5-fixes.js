@@ -267,7 +267,7 @@ async function addReprintButtons() {
         return;
       }
       try {
-        printReceipt(normalizedSaleForPrint(sale));
+        await Promise.resolve(printReceipt(normalizedSaleForPrint(sale)));
       } catch (error) {
         notify(error.message || 'Nota gagal dicetak', 'error');
       }

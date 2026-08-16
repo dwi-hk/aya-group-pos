@@ -991,7 +991,7 @@ async function addReprintButtons() {
       }
       if (!sale) return notify(`Data nota ${invoice} tidak ditemukan`, 'error');
       try {
-        printReceipt(normalizedSaleForPrint(sale));
+        await Promise.resolve(printReceipt(normalizedSaleForPrint(sale)));
       } catch (error) {
         notify(error.message || 'Nota gagal dicetak', 'error');
       }

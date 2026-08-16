@@ -1063,7 +1063,7 @@ export async function renderPOS(ctx) {
       }
 
       try {
-        printReceipt(sale);
+        await Promise.resolve(printReceipt(sale));
       } catch (error) {
         ctx.notify(
           `${error.message || 'Nota gagal dicetak.'} Transaksi sudah tersimpan; jangan simpan ulang.`,
