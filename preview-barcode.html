@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Preview Kasir Barcode AYA</title>
+<link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/fixes-v2.5.css">
+<link rel="stylesheet" href="css/fixes-v2.6.css">
+<link rel="stylesheet" href="css/kasir-gaji-v2.11.3.css">
+<link rel="stylesheet" href="css/kasir-profesional-v2.12.0.css">
+<link rel="stylesheet" href="css/kasir-mart-v2.15.1.css">
+<link rel="stylesheet" href="css/kasir-dual-mode-v2.17.3.css">
+<style>
+html,body{margin:0;overflow:hidden;background:#0d0f12} body{font-family:Arial,Helvetica,sans-serif}.preview-shell{display:grid;grid-template-columns:225px 1fr;height:100vh}.preview-sidebar{background:#111419;border-right:1px solid #2d3138;padding:14px 10px;color:#fff}.preview-brand{display:flex;gap:10px;align-items:center;padding:10px 8px 18px;border-bottom:1px solid #2b2f36}.preview-brand .logo{width:38px;height:38px;border-radius:10px;background:#f57c00;color:#111;display:grid;place-items:center;font-weight:900}.preview-brand strong{display:block;font-size:15px}.preview-brand small{color:#9ea3ad;font-size:10px}.preview-nav{padding-top:14px}.preview-nav h4{font-size:10px;color:#8f949e;margin:12px 10px 6px}.preview-nav .item{padding:10px 12px;margin:3px 0;border-radius:9px;color:#cdd0d6;font-size:12px}.preview-nav .item.active{background:#f57c00;color:#111;font-weight:900}.preview-main{min-width:0;background:#0d0f12}.preview-topbar{height:72px;border-bottom:1px solid #2b2f36;background:#13161b;display:flex;align-items:center;justify-content:space-between;padding:0 18px;color:#fff}.preview-topbar h1{font-size:18px;margin:0}.preview-topbar p{font-size:10px;color:#9ca1aa;margin:3px 0 0}.preview-topbar .right{display:flex;gap:8px;align-items:center}.preview-badge{font-size:10px;border:1px solid #3c414a;border-radius:8px;padding:7px 9px;background:#1a1d23}.view-host{height:calc(100vh - 72px);padding:8px 10px;overflow:hidden;box-sizing:border-box}.aya-pos-pro[data-pos-mode="barcode"]{height:100%;max-height:100%;min-height:0}.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-layout{height:calc(100% - 74px)}.aya-pos-pro .pos-pro-product-grid,.aya-pos-pro .pos-pro-pagination,.aya-pos-pro .pos-pro-filter-row,.aya-pos-pro .pos-pro-categories,.aya-pos-pro .pos-pro-catalog .pos-pro-section-head{display:none!important}
+</style>
+</head>
+<body class="aya-pos-barcode-mode">
+<div class="preview-shell">
+  <aside class="preview-sidebar">
+    <div class="preview-brand"><div class="logo">AYA</div><div><strong>AYA GROUP</strong><small>MULTY PAYMENT</small></div></div>
+    <div class="preview-nav">
+      <h4>TRANSAKSI</h4>
+      <div class="item active">🧾 Kasir</div>
+      <div class="item">🧮 Penjualan</div>
+      <div class="item">🛒 Pembelian / Kulakan</div>
+      <h4>BARANG & STOK</h4>
+      <div class="item">📦 Master Barang & Stok</div>
+      <div class="item">🛠️ Inventaris</div>
+      <h4>KEUANGAN</h4>
+      <div class="item">📈 Laporan Lengkap</div>
+      <div class="item">💵 Kas & Rekonsiliasi</div>
+    </div>
+  </aside>
+  <main class="preview-main">
+    <div class="preview-topbar">
+      <div><h1>Kasir</h1><p>Transaksi cepat, pembayaran, nota, dan pesanan tertahan</p></div>
+      <div class="right"><div class="preview-badge">AYA SEBLAK & ANGKRINGAN</div><div class="preview-badge">Owner · Online</div></div>
+    </div>
+    <section class="view-host">
+      <div class="aya-pos-view aya-pos-pro" data-pos-mode="barcode">
+        <header class="pos-pro-page-head">
+          <div>
+            <span class="pos-pro-eyebrow">KASIR CABANG AKTIF</span>
+            <h2>Kasir AYA Seblak &amp; Angkringan</h2>
+            <p>POS makanan dan minuman · transaksi cepat · nota berjalan</p>
+          </div>
+          <div class="pos-view-switcher">
+            <span>PILIH TAMPILAN KASIR</span>
+            <div><button>Versi Tablet</button><button class="is-active">Versi Barcode</button></div>
+            <small id="posViewModeLabel">Mode aktif: Versi Barcode</small>
+          </div>
+          <div class="pos-pro-page-meta"><span class="pos-pro-branch">AYA SEBLAK & ANGKRINGAN</span><span>Owner · Online</span><time>17/08/2026 16:19:00</time></div>
+        </header>
+
+        <div class="pos-pro-layout">
+          <section class="pos-pro-panel pos-pro-catalog">
+            <div class="pos-pro-code-box">
+              <label>KODE / BARCODE MENU</label>
+              <div><input id="quickCode" value="8999999900012" readonly><button id="scanButton" class="pos-pro-scan-button">📷 Scan Kamera F8</button></div>
+              <div class="pos-pro-scan-result" data-state="success">
+                <span>✓ BARCODE TERBACA</span>
+                <strong>SEBLAK ALL VARIAN</strong>
+                <small>8999999900012 · Rp 8.000</small>
+              </div>
+            </div>
+          </section>
+
+          <aside class="pos-pro-panel pos-pro-receipt">
+            <header class="pos-pro-receipt-head">
+              <div class="pos-pro-receipt-identity"><span>NOTA BERJALAN</span><strong>AYA-20260817-161900</strong></div>
+              <div class="pos-pro-mart-total"><span>TOTAL BELANJA</span><strong>Rp 26.000</strong><small>3 item</small></div>
+              <b>AYA</b>
+            </header>
+            <div class="pos-pro-operator"><span>👤 Owner</span><time>17/08/2026 16:19:00</time></div>
+
+            <section class="pos-pro-customer">
+              <div class="pos-pro-customer-title">👥 DATA PELANGGAN / PEMESAN</div>
+              <div class="pos-pro-customer-grid">
+                <label>Nama Pelanggan<input value="Pelanggan Umum" readonly></label>
+                <label>Nomor WhatsApp<input placeholder="08xxxxxxxxxx" readonly></label>
+                <label class="full">Alamat<textarea rows="2" readonly></textarea></label>
+              </div>
+            </section>
+
+            <div class="pos-pro-cart-heading"><span>MENU PESANAN</span><span>JUMLAH &amp; AKSI</span></div>
+            <div class="pos-pro-cart-list">
+              <div class="pos-pro-cart-row is-selected"><div class="pos-pro-cart-copy"><strong>Seblak All Varian</strong><small>Rp 8.000 / porsi · Total <b>Rp 8.000</b></small></div><div class="pos-pro-qty-controls"><button>−</button><b>1</b><button>＋</button></div></div>
+              <div class="pos-pro-cart-row"><div class="pos-pro-cart-copy"><strong>Paket Seblak + Es Teh</strong><small>Rp 10.000 / paket · Total <b>Rp 10.000</b></small></div><div class="pos-pro-qty-controls"><button>−</button><b>1</b><button>＋</button></div></div>
+              <div class="pos-pro-cart-row"><div class="pos-pro-cart-copy"><strong>Mie Sedaap Korean</strong><small>Rp 8.000 / porsi · Total <b>Rp 8.000</b></small></div><div class="pos-pro-qty-controls"><button>−</button><b>1</b><button>＋</button></div></div>
+            </div>
+
+            <div class="pos-pro-order-grid">
+              <label>Jenis Pesanan<select><option>Makan di tempat</option></select></label>
+              <label>Biaya Kemasan<input value="0"></label>
+              <label class="full">Catatan Pesanan<textarea placeholder="Contoh: tidak pedas"></textarea></label>
+            </div>
+
+            <div class="pos-pro-item-actions"><button class="pos-pro-button">✏️ Edit Harga Item</button><button class="pos-pro-button">🏷️ Diskon</button><button class="pos-pro-button pos-pro-danger">🗑️ Hapus Item</button></div>
+            <label class="pos-pro-discount">Diskon Nota<input value="0"></label>
+            <div class="pos-pro-summary"><div><span>Subtotal</span><b>Rp 26.000</b></div><div><span>Ongkir</span><b>Rp 0</b></div><div><span>Kemasan</span><b>Rp 0</b></div><div><span>Diskon</span><b>-Rp 0</b></div><div class="pos-pro-total"><span>TOTAL</span><b>Rp 26.000</b></div><div class="pos-pro-change"><span>Kembalian</span><b>Rp 4.000</b></div></div>
+
+            <section class="pos-pro-payment"><div class="pos-pro-payment-buttons"><button class="is-active"><span>💵</span><b>TUNAI</b></button><button><span>▦</span><b>QRIS</b></button><button><span>👤</span><b>PERSONAL</b></button><button><span>🟠</span><b>HUTANG</b></button></div></section>
+            <label class="pos-pro-paid-field">Uang Diterima<div class="pos-pro-paid-input"><input value="30000"><strong>Rp 30.000</strong></div><div class="pos-pro-cash-shortcuts"><button>Uang Pas</button><button>+5K</button><button>+10K</button><button>+20K</button><button>+50K</button><button>+100K</button><button>Reset</button></div></label>
+
+            <footer class="pos-pro-footer-actions"><button class="pos-pro-button">📥 AMBIL (1)</button><button class="pos-pro-button pos-pro-hold">TAHAN</button><button id="saveSale" class="pos-pro-button pos-pro-save">💾 SIMPAN</button><button id="printSale" class="pos-pro-button">🖨️ CETAK</button><button id="clearSale" class="pos-pro-button">🧹 KOSONGKAN</button></footer>
+          </aside>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+</body>
+</html>

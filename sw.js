@@ -1,4 +1,4 @@
-const CACHE = 'aya-pos-v2.16.3-hierarchical-tabs';
+const CACHE = 'aya-pos-v2.18.0-kasir-dua-langkah';
 
 const ASSETS = [
   './',
@@ -15,6 +15,7 @@ const ASSETS = [
   './css/kasir-gaji-v2.11.3.css',
   './css/kasir-profesional-v2.12.0.css',
   './css/kasir-mart-v2.15.1.css',
+  './css/kasir-flow-v2.18.0.css',
   './css/sidebar-hierarchy-v2.16.3.css',
   './js/app.js',
   './js/aya-v2.6-fixes.js',

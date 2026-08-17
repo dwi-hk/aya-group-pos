@@ -31,6 +31,8 @@ let cart = [];
 let held = JSON.parse(localStorage.getItem('aya.held') || '[]');
 let products = [];
 let saleSaving = false;
+let lastSavedSale = null;
+const POS_VIEW_MODE_KEY = 'aya.pos.viewMode';
 
 const saveHeld = () => localStorage.setItem('aya.held', JSON.stringify(held));
 
@@ -143,12 +145,27 @@ export async function renderPOS(ctx) {
           <h2>Kasir AYA Seblak &amp; Angkringan</h2>
           <p>POS makanan dan minuman · transaksi cepat · nota berjalan</p>
         </div>
+        <div class="pos-view-switcher" id="posViewSwitcher">
+          <span>MODE KASIR</span>
+          <div role="group" aria-label="Pilih tampilan kasir">
+            <button type="button" data-pos-view-mode="tablet" aria-pressed="false">▦ Versi Tablet</button>
+            <button type="button" data-pos-view-mode="barcode" aria-pressed="false">▤ Versi Barcode</button>
+          </div>
+          <small id="posViewModeLabel">Tampilan Kasir Versi Tablet</small>
+        </div>
+
         <div class="pos-pro-page-meta">
           <span class="pos-pro-branch">${escapeHTML(ctx.branch.name)}</span>
           <span>${escapeHTML(ctx.user.name || 'Owner')} · Online</span>
           <time id="posDeviceClock">${formatDeviceDate()}</time>
         </div>
       </header>
+
+      <div class="pos-flow-progress" aria-label="Alur kasir">
+        <div class="is-active"><b>1</b><span id="posStepOneLabel">Cari / Pilih Menu</span></div>
+        <span>→</span>
+        <div><b>2</b><span>Konfirmasi &amp; Pembayaran</span></div>
+      </div>
 
       <div class="pos-pro-layout">
         <section class="pos-pro-panel pos-pro-catalog" aria-label="Katalog menu">
@@ -159,6 +176,7 @@ export async function renderPOS(ctx) {
             </div>
             <div class="pos-pro-head-actions">
               <button id="newTransaction" type="button" class="pos-pro-button pos-pro-button-accent">🧾 Transaksi Baru</button>
+              <button id="focusMenuSearchButton" type="button" class="pos-pro-button pos-menu-search-action">🔍 Cari Menu</button>
               <button id="openMasterButton" type="button" class="pos-pro-button">✏️ Kelola Menu</button>
             </div>
           </header>
@@ -221,102 +239,210 @@ export async function renderPOS(ctx) {
             <time id="draftClock">${formatDeviceDate(draftCreatedAt)}</time>
           </div>
 
-          <section class="pos-pro-customer">
-            <div class="pos-pro-customer-title">👥 DATA PELANGGAN / PEMESAN</div>
-            <div class="pos-pro-customer-grid">
-              <label>Nama Pelanggan<input id="customerName" autocomplete="name" placeholder="Nama pelanggan / nama personal"></label>
-              <label>Nomor WhatsApp<input id="customerPhone" inputmode="tel" autocomplete="tel" placeholder="08xxxxxxxxxx"></label>
-              <label class="full">Alamat<textarea id="customerAddress" rows="2" placeholder="Diisi untuk pesanan delivery"></textarea></label>
+          <div class="pos-stage-one">
+            <div class="pos-pro-cart-heading">
+              <span>MENU / BARANG TERPILIH</span>
+              <span>JUMLAH &amp; AKSI</span>
             </div>
-          </section>
+            <div id="cartList" class="pos-pro-cart-list"></div>
 
-          <div class="pos-pro-cart-heading"><span>MENU PESANAN</span><span>JUMLAH &amp; AKSI</span></div>
-          <div id="cartList" class="pos-pro-cart-list"></div>
+            <div class="pos-pro-item-actions">
+              <button id="editSelectedPrice" type="button" class="pos-pro-button">✏️ Edit Harga Item</button>
+              <button id="focusDiscount" type="button" class="pos-pro-button">🏷️ Diskon</button>
+              <button id="deleteSelectedItem" type="button" class="pos-pro-button pos-pro-danger">🗑️ Hapus Item</button>
+            </div>
 
-          <div class="pos-pro-order-grid">
-            <label>Jenis Pesanan
-              <select id="orderType"><option>Makan di tempat</option><option>Dibungkus</option><option>Delivery</option></select>
-            </label>
-            <label id="shippingField" hidden>Ongkos Kirim
-              <input id="shipping" inputmode="numeric" value="0" readonly>
-              <small>Terisi otomatis; jarak di atas 5 km diisi setelah konfirmasi admin.</small>
-            </label>
-            <label id="manualShippingField" class="full pos-pro-manual-shipping" hidden>Ongkir Manual (&gt; 5 km)
-              <input id="manualShipping" type="number" inputmode="numeric" min="0" step="1000" value="0" placeholder="Masukkan ongkir manual">
-              <small>Khusus jarak lebih dari 5 km. Tarif 0–5 km tetap mengikuti ongkir otomatis yang sudah ada di sistem.</small>
-            </label>
-            <section id="deliveryOptions" class="pos-pro-delivery-options full" hidden>
-              <div class="pos-pro-delivery-head">
-                <div><span>🛵 TARIF DELIVERY</span><small>Ongkir dihitung setelah Share Location diterima.</small></div>
-                <strong id="deliveryRatePreview">Tunggu Share Location</strong>
+            <div class="pos-stage-actions" aria-label="Aksi tahap pilih menu">
+              <button id="heldButton" type="button" class="pos-pro-button">📥 AMBIL (${held.filter(item => item.branchId === ctx.branch.id).length})</button>
+              <button id="holdButton" type="button" class="pos-pro-button pos-pro-hold">⏸ TAHAN</button>
+              <div class="pos-stage-total">
+                <span>TOTAL SEMENTARA</span>
+                <strong id="stageOneTotal">Rp 0</strong>
               </div>
-              <label class="pos-pro-share-location">
-                <input id="shareLocationReceived" type="checkbox">
-                <span>Share Location pelanggan sudah diterima</span>
-              </label>
-              <span class="pos-pro-distance-title">Klik Jarak Warung ke Pelanggan</span>
-              <select id="deliveryDistanceBand" hidden aria-hidden="true" tabindex="-1">
-                <option value="">Belum dipilih</option>
-                ${DELIVERY_RATES.map(rate => `<option value="${rate.id}">${rate.distance}</option>`).join('')}
-              </select>
-              <div id="deliveryDistanceButtons" class="pos-pro-distance-buttons">
-                ${DELIVERY_RATES.map(rate => `
-                  <button type="button" data-delivery-band="${rate.id}" disabled>
-                    <span>${rate.distance}</span>
-                    <b>${rate.adminConfirmation ? 'Konfirmasi Admin' : rupiah(rate.fee)}</b>
-                    <small>${rate.adminConfirmation ? 'Ongkir diisi manual' : `Min. belanja ${rupiah(rate.minimum)}`}</small>
-                  </button>`).join('')}
-              </div>
-              <div id="deliveryMinimumStatus" class="pos-pro-delivery-minimum" data-state="waiting">
-                Share Location diperlukan sebelum ongkir dihitung.
-              </div>
-              <div class="pos-pro-delivery-rate-list" aria-label="Daftar tarif dan minimum belanja">
-                ${DELIVERY_RATES.map(rate => `
-                  <div><span>${rate.distance}</span><b>${rate.adminConfirmation ? 'Konfirmasi admin' : `${rupiah(rate.fee)} · Min. ${rupiah(rate.minimum)}`}</b></div>`).join('')}
-              </div>
-            </section>
-            <label>Biaya Kemasan / Styrofoam<input id="styrofoamQty" type="number" min="0" value="0"><small>Rp1.000 per buah</small></label>
-            <label class="full">Catatan Pesanan<textarea id="orderNotes" rows="2" placeholder="Contoh: tidak pedas, tanpa bawang, pisahkan kuah"></textarea></label>
+              <button id="openPaymentButton" type="button" class="pos-pro-button pos-pro-save">LANJUT PEMBAYARAN →</button>
+            </div>
           </div>
 
-          <div class="pos-pro-item-actions">
-            <button id="editSelectedPrice" type="button" class="pos-pro-button">✏️ Edit Harga Item</button>
-            <button id="focusDiscount" type="button" class="pos-pro-button">🏷️ Diskon</button>
-            <button id="deleteSelectedItem" type="button" class="pos-pro-button pos-pro-danger">🗑️ Hapus Item</button>
-          </div>
-          <label class="pos-pro-discount">Diskon Nota<input id="discount" inputmode="numeric" value="0"></label>
-          <div id="cartSummary" class="pos-pro-summary"></div>
+          <dialog id="posPaymentDialog" class="pos-payment-dialog" aria-labelledby="posPaymentTitle">
+            <div class="pos-payment-dialog-shell">
+              <header class="pos-payment-dialog-head">
+                <div>
+                  <span class="pos-flow-kicker">LANGKAH 2 DARI 2</span>
+                  <h3 id="posPaymentTitle">Konfirmasi Pesanan &amp; Pembayaran</h3>
+                  <p>Periksa pesanan, pilih metode pembayaran, lalu Simpan. Cetak dilakukan terpisah setelah transaksi tersimpan.</p>
+                </div>
+                <div class="pos-payment-dialog-total">
+                  <span>TOTAL</span>
+                  <strong id="paymentDialogTotal">Rp 0</strong>
+                  <small id="paymentDialogItemCount">0 item</small>
+                </div>
+                <button id="closePaymentButton" type="button" class="pos-payment-close" aria-label="Kembali ke pilih menu">✕</button>
+              </header>
 
-          <section class="pos-pro-payment">
-            <span class="pos-pro-payment-title">METODE PEMBAYARAN</span>
-            <select id="paymentMethod" aria-label="Metode pembayaran">
-              ${PAYMENT_METHODS.map(method => `<option value="${method.value}">${method.value}</option>`).join('')}
-            </select>
-            <div class="pos-pro-payment-buttons">
-              ${PAYMENT_METHODS.map((method, index) => `<button type="button" data-payment-method="${method.value}" class="${index === 0 ? 'is-active' : ''}"><span>${method.icon}</span><b>${method.value}</b></button>`).join('')}
+              <div class="pos-payment-dialog-body">
+                <section class="pos-payment-left">
+                  <div class="pos-flow-card pos-payment-review-card">
+                    <div class="pos-flow-card-title">
+                      <span>🧾 RINGKASAN PESANAN</span>
+                      <button id="backToItemsButton" type="button" class="pos-mini-link">← Ubah Menu</button>
+                    </div>
+                    <div id="paymentReviewList" class="pos-payment-review-list"></div>
+                  </div>
+
+                  <section class="pos-pro-customer pos-flow-card">
+                    <div class="pos-pro-customer-title">👥 DATA PELANGGAN / PEMESAN</div>
+                    <div class="pos-pro-customer-grid">
+                      <label>Nama Pelanggan<input id="customerName" autocomplete="name" placeholder="Nama pelanggan / nama personal"></label>
+                      <label>Nomor WhatsApp<input id="customerPhone" inputmode="tel" autocomplete="tel" placeholder="08xxxxxxxxxx"></label>
+                      <label class="full">Alamat<textarea id="customerAddress" rows="2" placeholder="Diisi untuk pesanan delivery"></textarea></label>
+                    </div>
+                  </section>
+
+                  <div class="pos-pro-order-grid pos-flow-card">
+                    <label>Jenis Pesanan
+                      <select id="orderType"><option>Makan di tempat</option><option>Dibungkus</option><option>Delivery</option></select>
+                    </label>
+                    <label id="shippingField" hidden>Ongkos Kirim
+                      <input id="shipping" inputmode="numeric" value="0" readonly>
+                      <small>Terisi otomatis; jarak di atas 5 km diisi setelah konfirmasi admin.</small>
+                    </label>
+                    <label id="manualShippingField" class="full pos-pro-manual-shipping" hidden>Ongkir Manual (&gt; 5 km)
+                      <input id="manualShipping" type="number" inputmode="numeric" min="0" step="1000" value="0" placeholder="Masukkan ongkir manual">
+                      <small>Khusus jarak lebih dari 5 km. Tarif 0–5 km tetap mengikuti ongkir otomatis yang sudah ada di sistem.</small>
+                    </label>
+                    <section id="deliveryOptions" class="pos-pro-delivery-options full" hidden>
+                      <div class="pos-pro-delivery-head">
+                        <div><span>🛵 TARIF DELIVERY</span><small>Ongkir dihitung setelah Share Location diterima.</small></div>
+                        <strong id="deliveryRatePreview">Tunggu Share Location</strong>
+                      </div>
+                      <label class="pos-pro-share-location">
+                        <input id="shareLocationReceived" type="checkbox">
+                        <span>Share Location pelanggan sudah diterima</span>
+                      </label>
+                      <span class="pos-pro-distance-title">Klik Jarak Warung ke Pelanggan</span>
+                      <select id="deliveryDistanceBand" hidden aria-hidden="true" tabindex="-1">
+                        <option value="">Belum dipilih</option>
+                        ${DELIVERY_RATES.map(rate => `<option value="${rate.id}">${rate.distance}</option>`).join('')}
+                      </select>
+                      <div id="deliveryDistanceButtons" class="pos-pro-distance-buttons">
+                        ${DELIVERY_RATES.map(rate => `
+                          <button type="button" data-delivery-band="${rate.id}" disabled>
+                            <span>${rate.distance}</span>
+                            <b>${rate.adminConfirmation ? 'Konfirmasi Admin' : rupiah(rate.fee)}</b>
+                            <small>${rate.adminConfirmation ? 'Ongkir diisi manual' : `Min. belanja ${rupiah(rate.minimum)}`}</small>
+                          </button>`).join('')}
+                      </div>
+                      <div id="deliveryMinimumStatus" class="pos-pro-delivery-minimum" data-state="waiting">
+                        Share Location diperlukan sebelum ongkir dihitung.
+                      </div>
+                      <div class="pos-pro-delivery-rate-list" aria-label="Daftar tarif dan minimum belanja">
+                        ${DELIVERY_RATES.map(rate => `
+                          <div><span>${rate.distance}</span><b>${rate.adminConfirmation ? 'Konfirmasi admin' : `${rupiah(rate.fee)} · Min. ${rupiah(rate.minimum)}`}</b></div>`).join('')}
+                      </div>
+                    </section>
+                    <label>Biaya Kemasan / Styrofoam<input id="styrofoamQty" type="number" min="0" value="0"><small>Rp1.000 per buah</small></label>
+                    <label class="full">Catatan Pesanan<textarea id="orderNotes" rows="2" placeholder="Contoh: tidak pedas, tanpa bawang, pisahkan kuah"></textarea></label>
+                  </div>
+                </section>
+
+                <section class="pos-payment-right">
+                  <div class="pos-flow-card">
+                    <label class="pos-pro-discount">Diskon Nota<input id="discount" inputmode="numeric" value="0"></label>
+                    <div id="cartSummary" class="pos-pro-summary"></div>
+                  </div>
+
+                  <section class="pos-pro-payment pos-flow-card">
+                    <span class="pos-pro-payment-title">METODE PEMBAYARAN</span>
+                    <select id="paymentMethod" aria-label="Metode pembayaran">
+                      ${PAYMENT_METHODS.map(method => `<option value="${method.value}">${method.value}</option>`).join('')}
+                    </select>
+                    <div class="pos-pro-payment-buttons">
+                      ${PAYMENT_METHODS.map((method, index) => `<button type="button" data-payment-method="${method.value}" class="${index === 0 ? 'is-active' : ''}"><span>${method.icon}</span><b>${method.value}</b></button>`).join('')}
+                    </div>
+                  </section>
+
+                  <label id="paidField" class="pos-pro-paid-field pos-flow-card">Uang Diterima
+                    <div class="pos-pro-paid-input"><input id="paid" inputmode="numeric" value="0"><strong id="paidAmountDisplay">Rp 0</strong></div>
+                    <div class="pos-pro-cash-shortcuts">
+                      <button type="button" data-cash-action="exact">Uang Pas</button>
+                      <button type="button" data-cash-add="5000">+5K</button><button type="button" data-cash-add="10000">+10K</button>
+                      <button type="button" data-cash-add="20000">+20K</button><button type="button" data-cash-add="50000">+50K</button>
+                      <button type="button" data-cash-add="100000">+100K</button><button type="button" data-cash-action="reset">Reset</button>
+                    </div>
+                  </label>
+
+                  <div id="paymentFlowStatus" class="pos-payment-status" data-state="ready">
+                    Periksa data lalu tekan <b>SIMPAN</b>. Tombol <b>CETAK</b> aktif setelah transaksi tersimpan.
+                  </div>
+                </section>
+              </div>
+
+              <footer class="pos-pro-footer-actions pos-payment-final-actions">
+                <button id="paymentHoldButton" type="button" class="pos-pro-button pos-pro-hold">⏸ TAHAN</button>
+                <button id="saveSale" type="button" class="pos-pro-button pos-pro-save">💾 SIMPAN</button>
+                <button id="printSale" type="button" class="pos-pro-button pos-pro-print" disabled>🖨️ CETAK</button>
+                <button id="clearSale" type="button" class="pos-pro-button pos-pro-clear">🧹 KOSONGKAN</button>
+              </footer>
             </div>
-          </section>
-
-          <label id="paidField" class="pos-pro-paid-field">Uang Diterima
-            <div class="pos-pro-paid-input"><input id="paid" inputmode="numeric" value="0"><strong id="paidAmountDisplay">Rp 0</strong></div>
-            <div class="pos-pro-cash-shortcuts">
-              <button type="button" data-cash-action="exact">Uang Pas</button>
-              <button type="button" data-cash-add="5000">+5K</button><button type="button" data-cash-add="10000">+10K</button>
-              <button type="button" data-cash-add="20000">+20K</button><button type="button" data-cash-add="50000">+50K</button>
-              <button type="button" data-cash-add="100000">+100K</button><button type="button" data-cash-action="reset">Reset</button>
-            </div>
-          </label>
-
-          <footer class="pos-pro-footer-actions">
-            <button id="heldButton" type="button" class="pos-pro-button">📥 AMBIL (${held.filter(item => item.branchId === ctx.branch.id).length})</button>
-            <button id="holdButton" type="button" class="pos-pro-button pos-pro-hold">TAHAN</button>
-            <button id="saveSale" type="button" class="pos-pro-button pos-pro-save">Simpan &amp; Cetak</button>
-          </footer>
+          </dialog>
         </aside>
       </div>
     </div>`;
 
   const $ = selector => ctx.host.querySelector(selector);
+  const posRoot = $('.aya-pos-pro');
+
+  const normalizePOSViewMode = mode =>
+    mode === 'barcode' ? 'barcode' : 'tablet';
+
+  const initialPOSViewMode = normalizePOSViewMode(
+    localStorage.getItem(POS_VIEW_MODE_KEY)
+  );
+
+  const applyPOSViewMode = mode => {
+    const nextMode = normalizePOSViewMode(mode);
+    posRoot.dataset.posMode = nextMode;
+    localStorage.setItem(POS_VIEW_MODE_KEY, nextMode);
+    document.body.classList.toggle(
+      'aya-pos-barcode-mode',
+      nextMode === 'barcode'
+    );
+
+    ctx.host.querySelectorAll('[data-pos-view-mode]').forEach(button => {
+      const active = button.dataset.posViewMode === nextMode;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+
+    const label = $('#posViewModeLabel');
+    if (label) {
+      label.textContent = nextMode === 'barcode'
+        ? 'Tampilan Kasir Versi Barcode · Scan lalu bayar'
+        : 'Tampilan Kasir Versi Tablet · Cari menu lalu bayar';
+    }
+
+    const stepLabel = $('#posStepOneLabel');
+    if (stepLabel) {
+      stepLabel.textContent = nextMode === 'barcode'
+        ? 'Scan Barcode'
+        : 'Cari / Pilih Menu';
+    }
+
+    const menuSearchButton = $('#focusMenuSearchButton');
+    if (menuSearchButton) menuSearchButton.hidden = nextMode === 'barcode';
+
+    if ($('#posPaymentDialog')?.open) $('#posPaymentDialog').close();
+    posRoot.classList.remove('is-payment-open');
+
+    renderCart();
+
+    if (nextMode === 'barcode') {
+      window.requestAnimationFrame(() => {
+        $('#quickCode')?.focus();
+        $('#quickCode')?.select?.();
+      });
+    }
+  };
 
   const filteredProducts = () => {
     const query = $('#productSearch').value.trim().toLowerCase();
@@ -349,7 +475,10 @@ export async function renderPOS(ctx) {
           <button type="button" class="pos-pro-product-card" data-product="${escapeHTML(product.id)}">
             <span class="pos-pro-product-category">${escapeHTML(product.category || 'Lainnya')}</span>
             <strong>${escapeHTML(product.name)}</strong>
-            <small>${escapeHTML(product.code || product.barcode || product.id)} · Stok ${number(product.stock)}</small>
+            <small class="pos-pro-product-meta">
+              <span>${escapeHTML(product.code || product.barcode || product.id)}</span>
+              <span class="pos-stock-badge">Stok ${number(product.stock)}</span>
+            </small>
             <b>${rupiah(effectivePrice(product, level))}</b>
           </button>`).join('')
       : `<div class="pos-pro-products-empty"><span>🍽️</span><strong>Menu tidak ditemukan</strong><p>Tambahkan menu baru atau ubah kata pencarian dan kategori.</p><button id="emptyAddMenuButton" type="button" class="pos-pro-button pos-pro-button-accent">＋ Tambah Menu</button></div>`;
@@ -384,6 +513,7 @@ export async function renderPOS(ctx) {
   const renderSummary = () => {
     const values = totals();
     const paid = number($('#paid').value);
+    const itemCount = sum(cart, item => number(item.qty));
 
     $('#cartSummary').innerHTML = `
       <div><span>Subtotal</span><b>${rupiah(values.subtotal)}</b></div>
@@ -396,11 +526,15 @@ export async function renderPOS(ctx) {
 
     const martTotalDisplay = $('#martTotalDisplay');
     const martItemCount = $('#martItemCount');
+    const stageOneTotal = $('#stageOneTotal');
+    const paymentDialogTotal = $('#paymentDialogTotal');
+    const paymentDialogItemCount = $('#paymentDialogItemCount');
+
     if (martTotalDisplay) martTotalDisplay.textContent = rupiah(values.total);
-    if (martItemCount) {
-      const itemCount = sum(cart, item => number(item.qty));
-      martItemCount.textContent = `${itemCount.toLocaleString('id-ID')} item`;
-    }
+    if (martItemCount) martItemCount.textContent = `${itemCount.toLocaleString('id-ID')} item`;
+    if (stageOneTotal) stageOneTotal.textContent = rupiah(values.total);
+    if (paymentDialogTotal) paymentDialogTotal.textContent = rupiah(values.total);
+    if (paymentDialogItemCount) paymentDialogItemCount.textContent = `${itemCount.toLocaleString('id-ID')} item`;
 
     const minimumStatus = $('#deliveryMinimumStatus');
     if (minimumStatus) {
@@ -445,9 +579,80 @@ export async function renderPOS(ctx) {
               <button type="button" data-plus="${escapeHTML(item.id)}">＋</button>
             </div>
           </div>`).join('')
-      : '<div class="pos-pro-cart-empty"><strong>Belum ada menu dipilih</strong><span>Pilih menu dari katalog di sebelah kiri.</span></div>';
+      : (posRoot?.dataset.posMode === 'barcode'
+        ? '<div class="pos-pro-cart-empty"><strong>Siap scan barcode</strong><span>Nama barang akan muncul setelah barcode berhasil dipindai.</span></div>'
+        : '<div class="pos-pro-cart-empty"><strong>Belum ada menu dipilih</strong><span>Klik Cari Menu atau pilih menu dari katalog di sebelah kiri.</span></div>');
+
+    const review = $('#paymentReviewList');
+    if (review) {
+      review.innerHTML = cart.length
+        ? cart.map(item => `
+            <div class="pos-payment-review-row">
+              <div><strong>${escapeHTML(item.name)}</strong><small>${item.qty} × ${rupiah(item.price)}</small></div>
+              <b>${rupiah(item.qty * item.price)}</b>
+            </div>`).join('')
+        : '<div class="pos-payment-review-empty">Belum ada barang/menu dalam transaksi.</div>';
+    }
+
+    const openPaymentButton = $('#openPaymentButton');
+    if (openPaymentButton) openPaymentButton.disabled = !cart.length;
 
     renderSummary();
+  };
+
+  const paymentDialog = $('#posPaymentDialog');
+
+  const closePaymentFlow = () => {
+    if (paymentDialog?.open) paymentDialog.close();
+    posRoot.classList.remove('is-payment-open');
+
+    window.requestAnimationFrame(() => {
+      if (posRoot.dataset.posMode === 'barcode') {
+        $('#quickCode')?.focus();
+        $('#quickCode')?.select?.();
+      } else {
+        $('#productSearch')?.focus();
+      }
+    });
+  };
+
+  const openPaymentFlow = ({ focusDiscount = false } = {}) => {
+    if (!cart.length) {
+      ctx.notify(
+        posRoot.dataset.posMode === 'barcode'
+          ? 'Scan barcode terlebih dahulu.'
+          : 'Pilih menu terlebih dahulu.',
+        'error'
+      );
+      return;
+    }
+
+    renderCart();
+    syncPaymentUI();
+    syncDeliveryUI();
+
+    const status = $('#paymentFlowStatus');
+    if (status) {
+      status.dataset.state = 'ready';
+      status.innerHTML = 'Periksa data lalu tekan <b>SIMPAN</b>. Tombol <b>CETAK</b> aktif setelah transaksi tersimpan.';
+    }
+
+    $('#printSale').disabled = true;
+    $('#saveSale').disabled = false;
+    $('#saveSale').textContent = '💾 SIMPAN';
+
+    if (!paymentDialog.open) paymentDialog.showModal();
+    posRoot.classList.add('is-payment-open');
+
+    window.requestAnimationFrame(() => {
+      if (focusDiscount) {
+        $('#discount')?.focus();
+        $('#discount')?.select?.();
+      } else if ($('#paymentMethod').value === CASH_METHOD) {
+        $('#paid')?.focus();
+        $('#paid')?.select?.();
+      }
+    });
   };
 
   const syncDeliveryUI = () => {
@@ -664,7 +869,36 @@ export async function renderPOS(ctx) {
   renderCart();
   syncPaymentUI();
   syncDeliveryUI();
-  window.requestAnimationFrame(() => $('#quickCode')?.focus());
+  applyPOSViewMode(initialPOSViewMode);
+  $('#printSale').disabled = !lastSavedSale;
+  window.requestAnimationFrame(() => {
+    if (initialPOSViewMode === 'barcode') $('#quickCode')?.focus();
+  });
+
+  $('#posViewSwitcher').onclick = event => {
+    const button = event.target.closest('[data-pos-view-mode]');
+    if (!button) return;
+    applyPOSViewMode(button.dataset.posViewMode);
+  };
+
+  $('#focusMenuSearchButton').onclick = () => {
+    $('#productSearch')?.focus();
+    $('#productSearch')?.select?.();
+  };
+
+  $('#openPaymentButton').onclick = () => openPaymentFlow();
+  $('#closePaymentButton').onclick = closePaymentFlow;
+  $('#backToItemsButton').onclick = closePaymentFlow;
+
+  $('#paymentHoldButton').onclick = () => {
+    $('#holdButton').click();
+    if (!cart.length) closePaymentFlow();
+  };
+
+  paymentDialog.addEventListener('cancel', event => {
+    event.preventDefault();
+    closePaymentFlow();
+  });
 
   const openMaster = () => {
     if (typeof ctx.navigate === 'function') ctx.navigate('master');
@@ -856,8 +1090,7 @@ export async function renderPOS(ctx) {
   };
 
   $('#focusDiscount').onclick = () => {
-    $('#discount').focus();
-    $('#discount').select();
+    openPaymentFlow({ focusDiscount: true });
   };
 
   $('#newTransaction').onclick = () => {
@@ -865,6 +1098,13 @@ export async function renderPOS(ctx) {
     cart = [];
     resetDraft();
     renderCart();
+    closePaymentFlow();
+  };
+
+  $('#clearSale').onclick = () => {
+    const hadCart = cart.length > 0;
+    $('#newTransaction').click();
+    if (!hadCart || !cart.length) closePaymentFlow();
   };
 
   ['openMasterButton', 'addMenuButton', 'importMenuButton'].forEach(id => {
@@ -982,6 +1222,12 @@ export async function renderPOS(ctx) {
     saveButton.disabled = true;
     saveButton.textContent = 'Menyimpan…';
 
+    const paymentStatus = $('#paymentFlowStatus');
+    if (paymentStatus) {
+      paymentStatus.dataset.state = 'working';
+      paymentStatus.textContent = 'Menyimpan transaksi…';
+    }
+
     let result;
     let mainSaleSaved = false;
     const warnings = [];
@@ -994,6 +1240,11 @@ export async function renderPOS(ctx) {
        */
       result = await pushData(`sales/${ctx.branch.id}`, sale);
       mainSaleSaved = true;
+      lastSavedSale = {
+        ...sale,
+        items: (sale.items || []).map(item => ({ ...item }))
+      };
+      $('#printSale').disabled = false;
 
       try {
         await mirrorLegacySale(sale);
@@ -1062,19 +1313,28 @@ export async function renderPOS(ctx) {
         );
       }
 
-      try {
-        await Promise.resolve(printReceipt(sale));
-      } catch (error) {
-        ctx.notify(
-          `${error.message || 'Nota gagal dicetak.'} Transaksi sudah tersimpan; jangan simpan ulang.`,
-          'error'
-        );
-      }
-
       cart = [];
       resetDraft();
       renderCart();
       renderProducts();
+
+      const savedItemCount = sum(soldItems, item => number(item.qty));
+      const review = $('#paymentReviewList');
+      if (review) {
+        review.innerHTML = soldItems.map(item => `
+          <div class="pos-payment-review-row is-saved">
+            <div><strong>${escapeHTML(item.name)}</strong><small>${item.qty} × ${rupiah(item.price)}</small></div>
+            <b>${rupiah(item.qty * item.price)}</b>
+          </div>`).join('');
+      }
+      $('#paymentDialogTotal').textContent = rupiah(sale.total);
+      $('#paymentDialogItemCount').textContent = `${savedItemCount.toLocaleString('id-ID')} item`;
+      if (paymentStatus) {
+        paymentStatus.dataset.state = warnings.length ? 'warning' : 'success';
+        paymentStatus.innerHTML = warnings.length
+          ? `✓ Transaksi utama tersimpan. Ada proses tambahan yang perlu diperiksa. Anda tetap dapat mencetak nota ini.`
+          : `✓ Transaksi tersimpan. Silakan tekan <b>CETAK</b> atau <b>KOSONGKAN</b> untuk kembali ke transaksi baru.`;
+      }
     } catch (error) {
       console.error('Penyimpanan transaksi gagal:', error);
 
@@ -1091,12 +1351,55 @@ export async function renderPOS(ctx) {
         renderCart();
         renderProducts();
       }
+
+      if (paymentStatus) {
+        paymentStatus.dataset.state = mainSaleSaved ? 'warning' : 'error';
+        paymentStatus.textContent = mainSaleSaved
+          ? 'Transaksi utama sudah tersimpan. Jangan simpan ulang; cetak nota bila diperlukan.'
+          : (error.message || 'Transaksi gagal disimpan.');
+      }
     } finally {
       saleSaving = false;
 
       if (saveButton?.isConnected) {
-        saveButton.disabled = false;
-        saveButton.textContent = originalButtonText;
+        if (mainSaleSaved) {
+          saveButton.disabled = true;
+          saveButton.textContent = '✓ TERSIMPAN';
+        } else {
+          saveButton.disabled = false;
+          saveButton.textContent = originalButtonText;
+        }
+      }
+    }
+  };
+
+  $('#printSale').onclick = async () => {
+    if (!lastSavedSale) {
+      return ctx.notify(
+        'Belum ada transaksi tersimpan yang dapat dicetak.',
+        'error'
+      );
+    }
+
+    const button = $('#printSale');
+    const originalText = button.textContent;
+    button.disabled = true;
+    button.textContent = 'Mencetak…';
+
+    try {
+      await Promise.resolve(printReceipt(lastSavedSale));
+      ctx.notify('Nota transaksi terakhir dikirim ke printer.');
+      const status = $('#paymentFlowStatus');
+      if (status) {
+        status.dataset.state = 'success';
+        status.innerHTML = '✓ Nota sudah dikirim ke printer. Tekan <b>KOSONGKAN</b> atau tutup jendela untuk transaksi berikutnya.';
+      }
+    } catch (error) {
+      ctx.notify(error.message || 'Nota gagal dicetak.', 'error');
+    } finally {
+      if (button?.isConnected) {
+        button.disabled = false;
+        button.textContent = originalText;
       }
     }
   };
@@ -1227,6 +1530,7 @@ export async function renderPOS(ctx) {
     if (!ctx.host.isConnected || !clock) {
       window.clearInterval(deviceClockTimer);
       shortcutController.abort();
+      document.body.classList.remove('aya-pos-barcode-mode');
       return;
     }
     clock.textContent = formatDeviceDate();

@@ -11,7 +11,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js';
 import { setupPWA } from './pwa.js';
 import { renderDashboard } from './dashboard.js';
-import { renderPOS } from './pos.js?v=2.15.3';
+import { renderPOS } from './pos.js?v=2.18.0';
 import { renderMaster, renderDirectory } from './master.js';
 import { renderBranches, renderTransfers } from './branch.js';
 import {

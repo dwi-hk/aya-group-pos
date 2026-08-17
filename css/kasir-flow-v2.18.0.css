@@ -1,0 +1,1738 @@
+/*
+ * AYA GROUP POS v2.17.1 — Dual Kasir
+ * Hanya mengubah UI Kasir. Database dan struktur transaksi tidak diubah.
+ */
+
+.aya-pos-pro .pos-view-switcher{
+  align-items:center;
+  display:grid;
+  gap:4px;
+  justify-items:center;
+  min-width:250px
+}
+.aya-pos-pro .pos-view-switcher>span{
+  color:#aeb3bd;
+  font-size:8px;
+  font-weight:900;
+  letter-spacing:.08em
+}
+.aya-pos-pro .pos-view-switcher>div{
+  background:#101216;
+  border:1px solid #353a43;
+  border-radius:10px;
+  display:grid;
+  gap:4px;
+  grid-template-columns:1fr 1fr;
+  padding:4px;
+  width:100%
+}
+.aya-pos-pro .pos-view-switcher button{
+  background:#1a1d23;
+  border:1px solid transparent;
+  border-radius:7px;
+  color:#cfd2d8;
+  cursor:pointer;
+  font-size:10px;
+  font-weight:900;
+  min-height:30px;
+  padding:5px 8px
+}
+.aya-pos-pro .pos-view-switcher button.is-active{
+  background:#f57c00;
+  border-color:#ffad42;
+  color:#111;
+  box-shadow:0 0 0 1px rgba(245,124,0,.28)
+}
+.aya-pos-pro #posViewModeLabel{
+  color:#ff9b2f;
+  font-size:8px;
+  font-weight:800
+}
+
+/* Tombol transaksi dibuat terpisah. */
+.aya-pos-pro .pos-pro-footer-actions{
+  display:grid!important;
+  gap:5px!important;
+  grid-template-columns:repeat(5,minmax(0,1fr))!important
+}
+.aya-pos-pro .pos-pro-footer-actions button{
+  font-size:9px!important;
+  font-weight:900;
+  min-height:38px!important;
+  padding:5px 4px!important;
+  white-space:nowrap
+}
+.aya-pos-pro #saveSale{
+  background:#f57c00!important;
+  border-color:#ff9f2d!important;
+  color:#111!important
+}
+.aya-pos-pro #printSale{
+  background:#174b79!important;
+  border-color:#2d78b8!important;
+  color:#fff!important
+}
+.aya-pos-pro #printSale:disabled{
+  filter:grayscale(.75);
+  opacity:.48
+}
+.aya-pos-pro #clearSale{
+  background:#252930!important;
+  border-color:#5b626e!important;
+  color:#fff!important
+}
+
+/* Versi Tablet = tampilan lama dipertahankan. */
+.aya-pos-pro[data-pos-mode="tablet"]{
+  --aya-pos-view:tablet
+}
+
+/* Versi Barcode: kunci satu halaman di laptop/tablet landscape. */
+body.aya-pos-barcode-mode{
+  overflow:hidden
+}
+body.aya-pos-barcode-mode .main-content{
+  height:100dvh;
+  overflow:hidden;
+  padding-bottom:0
+}
+body.aya-pos-barcode-mode .view-host{
+  height:auto;
+  min-height:0;
+  overflow:hidden;
+  padding-top:8px
+}
+
+.aya-pos-pro[data-pos-mode="barcode"]{
+  display:flex;
+  flex-direction:column;
+  height:calc(100dvh - 86px);
+  max-height:calc(100dvh - 86px);
+  min-height:560px;
+  overflow:hidden;
+  padding:4px 8px
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-page-head{
+  flex:0 0 auto;
+  gap:8px;
+  margin-bottom:5px;
+  min-height:48px;
+  padding:0 2px 5px
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-page-head>div:first-child h2{
+  font-size:15px;
+  margin:0
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-page-head>div:first-child p,
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-page-head>div:first-child .pos-pro-eyebrow{
+  font-size:8px;
+  margin:0
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-page-meta{
+  gap:3px
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-page-meta>*{
+  font-size:8px;
+  padding:4px 6px
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-view-switcher{
+  min-width:238px
+}
+
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-layout{
+  flex:1 1 0;
+  gap:7px;
+  grid-template-columns:minmax(255px,.43fr) minmax(560px,1.57fr);
+  height:auto;
+  min-height:0;
+  overflow:hidden
+}
+
+/* Katalog lama tetap ada di DOM agar semua fungsi tetap utuh,
+   tetapi nama barang tidak ditampilkan sebelum barcode dipindai. */
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-catalog{
+  background:linear-gradient(180deg,#13161b,#0d0f12);
+  border-color:#3b414b;
+  display:flex;
+  align-self:stretch;
+  height:auto!important;
+  min-height:0!important;
+  overflow:hidden!important;
+  padding:9px
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-catalog .pos-pro-section-head,
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-filter-row,
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-categories,
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-product-grid,
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-pagination{
+  display:none!important
+}
+
+/* Scanner menjadi fokus utama. */
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-code-box{
+  align-content:center;
+  background:
+    radial-gradient(circle at top right,rgba(245,124,0,.18),transparent 46%),
+    #101216;
+  border:1px solid #4c525d;
+  border-radius:14px;
+  display:grid;
+  flex:1 1 auto;
+  gap:10px;
+  padding:15px
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-code-box>label{
+  color:#ff9d31;
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.08em;
+  text-align:center
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-code-box>div:first-of-type{
+  display:grid;
+  gap:8px;
+  grid-template-columns:1fr
+}
+.aya-pos-pro[data-pos-mode="barcode"] #quickCode{
+  background:#fff;
+  border:3px solid #f57c00;
+  border-radius:12px;
+  color:#111;
+  font-size:clamp(20px,2vw,30px);
+  font-weight:900;
+  min-height:62px;
+  text-align:center
+}
+.aya-pos-pro[data-pos-mode="barcode"] #quickCode::placeholder{
+  color:#72767c;
+  font-size:13px;
+  font-weight:700
+}
+.aya-pos-pro[data-pos-mode="barcode"] #scanButton{
+  font-size:12px;
+  min-height:44px;
+  width:100%
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-scan-result{
+  border-radius:12px;
+  display:grid;
+  gap:5px;
+  grid-template-columns:1fr;
+  min-height:108px;
+  padding:12px;
+  text-align:center
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-scan-result span{
+  font-size:9px
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-scan-result strong{
+  color:#fff;
+  font-size:clamp(18px,1.6vw,25px);
+  line-height:1.15;
+  overflow:visible;
+  text-overflow:clip;
+  white-space:normal
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-scan-result small{
+  font-size:10px;
+  text-align:center;
+  white-space:normal
+}
+
+/* Nota kanan: semua fitur lama tetap ada, tetapi dipadatkan. */
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-receipt{
+  display:flex;
+  flex-direction:column;
+  align-self:stretch;
+  height:auto!important;
+  max-height:none!important;
+  min-height:0!important;
+  overflow:hidden!important;
+  padding:7px;
+  position:relative;
+  top:0
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-receipt-head{
+  flex:0 0 auto;
+  margin:-7px -7px 0;
+  padding:5px 7px;
+  position:static
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-mart-total{min-width:145px}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-mart-total strong{font-size:20px}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-operator{
+  flex:0 0 auto;
+  font-size:8px;
+  padding:3px 0
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-customer{
+  flex:0 0 auto;
+  margin-bottom:3px;
+  padding:4px 5px
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-customer-title{
+  font-size:8px;
+  margin-bottom:3px
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-customer-grid{
+  display:grid;
+  gap:4px;
+  grid-template-columns:.8fr .8fr 1.4fr
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-customer-grid .full{grid-column:auto}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-customer-grid label{font-size:7px}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-customer-grid input,
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-customer-grid textarea{
+  font-size:9px;
+  min-height:25px;
+  padding:3px 5px
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-customer-grid textarea{
+  height:27px;
+  min-height:27px;
+  resize:none
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-cart-heading{
+  flex:0 0 auto;
+  font-size:8px;
+  padding:4px 6px
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-cart-list{
+  background:#0e1013;
+  border:1px solid #353a42;
+  flex:1 1 auto;
+  margin-bottom:3px;
+  max-height:none!important;
+  min-height:88px;
+  overflow-y:auto
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-cart-row{
+  min-height:32px;
+  padding:4px 6px
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-cart-copy strong{
+  font-size:10px;
+  max-width:55%
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-cart-copy small,
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-cart-copy b{font-size:8px}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-order-grid{
+  flex:0 0 auto;
+  gap:3px;
+  grid-template-columns:repeat(4,minmax(0,1fr))
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-order-grid>label{font-size:7px}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-order-grid input,
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-order-grid select,
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-order-grid textarea{
+  font-size:8px;
+  min-height:25px;
+  padding:3px 4px
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-order-grid textarea{
+  height:26px;
+  min-height:26px;
+  resize:none
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-order-grid .full{grid-column:span 2}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-delivery-options{
+  grid-column:1/-1;
+  max-height:132px;
+  overflow-y:auto;
+  padding:4px
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-delivery-rate-list{display:none}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-distance-buttons{gap:3px}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-distance-buttons button{
+  min-height:30px;
+  padding:3px
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-distance-buttons button span,
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-distance-buttons button b,
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-distance-buttons button small{font-size:7px}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-item-actions{
+  flex:0 0 auto;
+  gap:3px;
+  margin:3px 0
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-item-actions .pos-pro-button{
+  font-size:7.5px;
+  min-height:25px;
+  padding:3px
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-discount{
+  flex:0 0 auto;
+  font-size:8px;
+  grid-template-columns:70px 1fr;
+  margin-bottom:2px;
+  padding:2px 4px
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-discount input{
+  font-size:9px;
+  min-height:25px
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-summary{
+  display:grid;
+  flex:0 0 auto;
+  gap:1px 7px;
+  grid-template-columns:repeat(3,1fr);
+  margin:2px 0;
+  padding:4px 6px
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-summary>div{
+  font-size:7.5px;
+  padding:0
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-summary .pos-pro-total{
+  font-size:10px;
+  grid-column:span 2;
+  margin:0;
+  padding:1px 0
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-summary .pos-pro-total b{font-size:14px}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-payment{flex:0 0 auto}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-payment-title,
+.aya-pos-pro[data-pos-mode="barcode"] #paymentMethod{display:none}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-payment-buttons{
+  gap:3px;
+  margin-top:2px
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-payment-buttons button{
+  font-size:7px;
+  min-height:31px;
+  padding:2px
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-payment-buttons button span{font-size:11px}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-paid-field{
+  flex:0 0 auto;
+  font-size:8px;
+  margin-top:2px;
+  padding:3px
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-paid-input input{
+  font-size:12px;
+  min-height:29px
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-paid-input strong{font-size:13px}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-cash-shortcuts{gap:2px}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-cash-shortcuts button{
+  font-size:7px;
+  min-height:24px;
+  padding:2px
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-footer-actions{
+  flex:0 0 auto;
+  margin-top:3px
+}
+
+@media(max-width:1100px){
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-layout{
+    grid-template-columns:minmax(220px,.39fr) minmax(500px,1.61fr)
+  }
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-view-switcher{min-width:200px}
+  .aya-pos-pro .pos-pro-footer-actions button{font-size:8px!important}
+}
+
+@media(max-width:760px){
+  body.aya-pos-barcode-mode{overflow:auto}
+  body.aya-pos-barcode-mode .main-content{
+    height:auto;
+    overflow:visible
+  }
+  body.aya-pos-barcode-mode .view-host{
+    height:auto;
+    overflow:visible
+  }
+  .aya-pos-pro .pos-view-switcher{
+    min-width:0;
+    width:100%
+  }
+  .aya-pos-pro .pos-pro-footer-actions{
+    grid-template-columns:repeat(2,1fr)!important
+  }
+  .aya-pos-pro[data-pos-mode="barcode"]{
+    height:auto;
+    max-height:none;
+    overflow:visible
+  }
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-layout{
+    grid-template-columns:1fr;
+    height:auto;
+    overflow:visible
+  }
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-catalog,
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-receipt{
+    height:auto!important
+  }
+}
+
+
+/* v2.17.2 — FIX Versi Barcode kosong.
+   Layout tidak lagi boleh collapse menjadi tinggi 0. */
+@media (min-width:761px) {
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-layout {
+    display:grid !important;
+  }
+
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-catalog,
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-receipt {
+    min-height:0 !important;
+  }
+}
+
+@media (max-height:720px) and (min-width:761px) {
+  .aya-pos-pro[data-pos-mode="barcode"]{
+    height:calc(100dvh - 72px);
+    max-height:calc(100dvh - 72px);
+    min-height:0;
+  }
+
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-page-head{
+    min-height:40px;
+    margin-bottom:3px;
+  }
+
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-code-box{
+    padding:10px;
+    gap:6px;
+  }
+
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-scan-result{
+    min-height:80px;
+  }
+}
+
+
+
+/* ============================================================
+   v2.17.3 — RAPiKAN TAMPILAN BARCODE
+   Fokus:
+   - tulisan diperbesar dan lebih jelas
+   - tidak mudah terpotong
+   - desain lebih familiar seperti kasir minimarket modern
+   ============================================================ */
+
+.aya-pos-pro[data-pos-mode="barcode"]{
+  padding:8px 10px;
+  background:
+    radial-gradient(circle at top right, rgba(245,124,0,.08), transparent 28%),
+    linear-gradient(180deg, rgba(255,255,255,.015), rgba(255,255,255,0));
+}
+
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-page-head{
+  align-items:center;
+  gap:12px;
+  margin-bottom:8px;
+  padding:4px 2px 8px;
+  border-bottom:1px solid rgba(255,255,255,.08);
+}
+
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-page-head > div:first-child h2{
+  font-size:18px;
+  line-height:1.2;
+}
+
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-page-head > div:first-child p,
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-page-head > div:first-child .pos-pro-eyebrow{
+  font-size:10px;
+  line-height:1.35;
+  color:#d6d9df;
+}
+
+.aya-pos-pro[data-pos-mode="barcode"] .pos-view-switcher{
+  min-width:280px;
+  gap:6px;
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-view-switcher > span{
+  font-size:10px;
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-view-switcher button{
+  font-size:12px;
+  min-height:34px;
+  padding:6px 10px;
+}
+.aya-pos-pro[data-pos-mode="barcode"] #posViewModeLabel{
+  font-size:10px;
+}
+
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-layout{
+  gap:12px;
+  grid-template-columns:minmax(310px,.52fr) minmax(720px,1.48fr);
+}
+
+/* Kartu kiri dan kanan dibuat lebih nyaman dilihat */
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-catalog,
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-receipt{
+  border-radius:18px;
+  border:1px solid rgba(255,255,255,.08);
+  box-shadow:0 10px 30px rgba(0,0,0,.18);
+}
+
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-catalog{
+  padding:12px;
+  background:
+    radial-gradient(circle at top right, rgba(245,124,0,.13), transparent 34%),
+    linear-gradient(180deg, #161a20, #101317);
+}
+
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-code-box{
+  gap:14px;
+  padding:18px;
+  border-radius:16px;
+  background:
+    radial-gradient(circle at top right, rgba(245,124,0,.20), transparent 44%),
+    linear-gradient(180deg, #12161b, #0e1116);
+}
+
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-code-box > label{
+  font-size:14px;
+  line-height:1.25;
+}
+
+.aya-pos-pro[data-pos-mode="barcode"] #quickCode{
+  min-height:74px;
+  padding:10px 12px;
+  font-size:clamp(24px, 2vw, 34px);
+  letter-spacing:.02em;
+}
+
+.aya-pos-pro[data-pos-mode="barcode"] #quickCode::placeholder{
+  font-size:14px;
+}
+
+.aya-pos-pro[data-pos-mode="barcode"] #scanButton{
+  min-height:48px;
+  font-size:14px;
+  font-weight:800;
+}
+
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-scan-result{
+  min-height:140px;
+  gap:8px;
+  padding:16px;
+  border-radius:16px;
+}
+
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-scan-result span{
+  font-size:11px;
+  line-height:1.35;
+}
+
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-scan-result strong{
+  font-size:clamp(22px, 1.8vw, 28px);
+  line-height:1.22;
+  word-break:break-word;
+}
+
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-scan-result small{
+  font-size:12px;
+  line-height:1.4;
+  word-break:break-word;
+}
+
+/* Panel kanan lebih familiar dan jelas */
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-receipt{
+  padding:10px;
+  background:
+    linear-gradient(180deg, #13171d, #0f1217);
+}
+
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-receipt-head{
+  margin:-10px -10px 0;
+  padding:8px 10px;
+  border-radius:18px 18px 0 0;
+}
+
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-mart-total{
+  min-width:180px;
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-mart-total strong{
+  font-size:24px;
+  line-height:1.1;
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-operator{
+  font-size:10px;
+  line-height:1.4;
+  padding:5px 0;
+}
+
+/* Blok input pelanggan */
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-customer{
+  padding:8px 10px;
+  margin-bottom:6px;
+  border-radius:14px;
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-customer-title{
+  font-size:11px;
+  font-weight:800;
+  margin-bottom:6px;
+  letter-spacing:.02em;
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-customer-grid{
+  gap:6px;
+  grid-template-columns:1fr 1fr 1.3fr;
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-customer-grid label{
+  font-size:9px;
+  line-height:1.25;
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-customer-grid input,
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-customer-grid textarea{
+  font-size:12px;
+  min-height:34px;
+  padding:6px 8px;
+  line-height:1.3;
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-customer-grid textarea{
+  height:36px;
+  min-height:36px;
+}
+
+/* Judul keranjang */
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-cart-heading{
+  font-size:11px;
+  font-weight:800;
+  padding:7px 10px;
+  border-radius:12px;
+}
+
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-cart-list{
+  min-height:130px;
+  border-radius:14px;
+  margin-bottom:6px;
+  padding:2px;
+}
+
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-cart-row{
+  min-height:42px;
+  padding:7px 9px;
+  border-radius:10px;
+}
+
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-cart-copy strong{
+  display:block;
+  max-width:none;
+  font-size:13px;
+  line-height:1.28;
+  white-space:normal;
+  overflow:visible;
+  word-break:break-word;
+}
+
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-cart-copy small,
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-cart-copy b{
+  font-size:10px;
+  line-height:1.35;
+}
+
+/* Grid order */
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-order-grid{
+  gap:6px;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+}
+
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-order-grid > label{
+  font-size:9px;
+  line-height:1.25;
+}
+
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-order-grid input,
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-order-grid select,
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-order-grid textarea{
+  font-size:11px;
+  min-height:34px;
+  padding:6px 8px;
+  line-height:1.3;
+}
+
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-order-grid textarea{
+  height:36px;
+  min-height:36px;
+}
+
+/* Delivery */
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-delivery-options{
+  max-height:170px;
+  padding:6px;
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-distance-buttons{
+  gap:6px;
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-distance-buttons button{
+  min-height:44px;
+  padding:6px;
+  border-radius:12px;
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-distance-buttons button span,
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-distance-buttons button b,
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-distance-buttons button small{
+  font-size:9px;
+  line-height:1.25;
+}
+
+/* Aksi item */
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-item-actions{
+  gap:6px;
+  margin:6px 0;
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-item-actions .pos-pro-button{
+  font-size:9px;
+  min-height:32px;
+  padding:5px 8px;
+  border-radius:10px;
+}
+
+/* Diskon dan summary */
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-discount{
+  font-size:10px;
+  grid-template-columns:90px 1fr;
+  gap:6px;
+  margin-bottom:4px;
+  padding:4px 6px;
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-discount input{
+  font-size:12px;
+  min-height:32px;
+  padding:5px 8px;
+}
+
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-summary{
+  gap:4px 10px;
+  padding:6px 8px;
+  margin:4px 0;
+  border-radius:12px;
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-summary > div{
+  font-size:10px;
+  line-height:1.3;
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-summary .pos-pro-total{
+  font-size:12px;
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-summary .pos-pro-total b{
+  font-size:18px;
+  line-height:1.2;
+}
+
+/* Payment */
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-payment-buttons{
+  gap:6px;
+  margin-top:4px;
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-payment-buttons button{
+  min-height:40px;
+  padding:5px 6px;
+  font-size:9px;
+  line-height:1.2;
+  border-radius:12px;
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-payment-buttons button span{
+  font-size:14px;
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-paid-field{
+  font-size:10px;
+  padding:5px;
+  margin-top:4px;
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-paid-input input{
+  min-height:34px;
+  font-size:14px;
+  padding:5px 8px;
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-paid-input strong{
+  font-size:15px;
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-cash-shortcuts{
+  gap:4px;
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-cash-shortcuts button{
+  min-height:28px;
+  font-size:9px;
+  padding:4px 6px;
+  border-radius:10px;
+}
+
+/* Tombol bawah */
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-footer-actions{
+  gap:6px!important;
+  margin-top:6px;
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-footer-actions button{
+  min-height:42px!important;
+  font-size:11px!important;
+  padding:7px 6px!important;
+  border-radius:12px!important;
+}
+
+/* Layar laptop sedang */
+@media (max-width: 1280px) and (min-width: 761px) {
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-layout{
+    grid-template-columns:minmax(280px,.48fr) minmax(620px,1.52fr);
+  }
+
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-view-switcher{
+    min-width:245px;
+  }
+
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-order-grid{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+  }
+
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-customer-grid{
+    grid-template-columns:1fr 1fr 1fr;
+  }
+}
+
+/* Layar pendek */
+@media (max-height: 760px) and (min-width: 761px) {
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-page-head > div:first-child h2{
+    font-size:16px;
+  }
+
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-page-head > div:first-child p,
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-page-head > div:first-child .pos-pro-eyebrow{
+    font-size:9px;
+  }
+
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-customer-grid input,
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-customer-grid textarea,
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-order-grid input,
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-order-grid select,
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-order-grid textarea{
+    min-height:30px;
+    font-size:10px;
+  }
+
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-footer-actions button{
+    min-height:38px!important;
+    font-size:10px!important;
+  }
+}
+
+/* HP / tablet portrait */
+@media (max-width:760px){
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-layout{
+    grid-template-columns:1fr;
+  }
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-customer-grid,
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-order-grid{
+    grid-template-columns:1fr 1fr;
+  }
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-payment-buttons{
+    grid-template-columns:repeat(2,1fr);
+  }
+}
+
+
+
+/* ============================================================
+   v2.17.4 — TOMBOL TRANSAKSI SELALU TERLIHAT DI MODE BARCODE
+   Simpan · Cetak · Tahan · Ambil · Kosongkan tidak perlu scroll.
+   ============================================================ */
+
+@media (min-width:761px) {
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-receipt{
+    position:relative!important;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+    padding-bottom:72px!important;
+    scrollbar-width:thin;
+  }
+
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-footer-actions{
+    position:sticky!important;
+    left:0;
+    right:0;
+    bottom:0;
+    z-index:40;
+    flex:0 0 auto!important;
+    display:grid!important;
+    grid-template-columns:repeat(5,minmax(0,1fr))!important;
+    gap:7px!important;
+    margin:8px -2px -2px!important;
+    padding:9px 4px 4px!important;
+    min-height:58px;
+    background:
+      linear-gradient(180deg, rgba(15,18,23,.2) 0%, #0f1217 22%, #0f1217 100%);
+    border-top:1px solid rgba(245,124,0,.45);
+    box-shadow:0 -10px 22px rgba(0,0,0,.30);
+    backdrop-filter:blur(8px);
+  }
+
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-footer-actions button{
+    min-width:0;
+    min-height:46px!important;
+    padding:7px 5px!important;
+    border-radius:12px!important;
+    font-size:10.5px!important;
+    font-weight:900!important;
+    line-height:1.15!important;
+    white-space:normal!important;
+    overflow:visible!important;
+    text-overflow:clip!important;
+  }
+
+  .aya-pos-pro[data-pos-mode="barcode"] #heldButton{
+    background:#24303a!important;
+    border-color:#52606d!important;
+    color:#fff!important;
+  }
+
+  .aya-pos-pro[data-pos-mode="barcode"] #holdButton{
+    background:#7b4b08!important;
+    border-color:#b97613!important;
+    color:#fff!important;
+  }
+
+  .aya-pos-pro[data-pos-mode="barcode"] #saveSale{
+    background:#f57c00!important;
+    border-color:#ffad42!important;
+    color:#111!important;
+  }
+
+  .aya-pos-pro[data-pos-mode="barcode"] #printSale{
+    background:#1769aa!important;
+    border-color:#3f8fd0!important;
+    color:#fff!important;
+  }
+
+  .aya-pos-pro[data-pos-mode="barcode"] #clearSale{
+    background:#3b2022!important;
+    border-color:#7d4146!important;
+    color:#fff!important;
+  }
+}
+
+/* Laptop 1366×768 / layar pendek: tombol tetap utuh, area lain yang menyesuaikan. */
+@media (min-width:761px) and (max-height:800px) {
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-receipt{
+    padding-bottom:66px!important;
+  }
+
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-footer-actions{
+    min-height:54px;
+    gap:5px!important;
+    padding:7px 3px 3px!important;
+    margin-top:5px!important;
+  }
+
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-footer-actions button{
+    min-height:42px!important;
+    font-size:9.5px!important;
+    padding:5px 4px!important;
+  }
+
+  /* Beri ruang ekstra untuk footer tanpa menghilangkan fitur. */
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-cart-list{
+    min-height:78px!important;
+  }
+
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-customer{
+    padding-top:5px!important;
+    padding-bottom:5px!important;
+  }
+
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-item-actions{
+    margin:3px 0!important;
+  }
+
+  .aya-pos-pro[data-pos-mode="barcode"] .pos-pro-summary{
+    margin:2px 0!important;
+  }
+}
+
+
+
+/* ============================================================
+   AYA GROUP POS v2.18.0 — ALUR KASIR 2 LANGKAH
+   Langkah 1: Cari/Pilih menu atau Scan Barcode
+   Langkah 2: Pop-up Konfirmasi & Pembayaran
+   Database dan struktur transaksi tidak diubah.
+   ============================================================ */
+
+/* --- Indikator alur --- */
+.aya-pos-pro .pos-flow-progress{
+  align-items:center;
+  display:flex;
+  flex:0 0 auto;
+  gap:8px;
+  margin:0 2px 8px;
+}
+.aya-pos-pro .pos-flow-progress>div{
+  align-items:center;
+  background:#15181d;
+  border:1px solid #353a43;
+  border-radius:999px;
+  color:#aeb3bd;
+  display:flex;
+  gap:7px;
+  min-height:32px;
+  padding:4px 10px;
+}
+.aya-pos-pro .pos-flow-progress>div.is-active{
+  background:#2a1b0d;
+  border-color:#97510c;
+  color:#fff;
+}
+.aya-pos-pro .pos-flow-progress b{
+  align-items:center;
+  background:#f57c00;
+  border-radius:50%;
+  color:#111;
+  display:inline-flex;
+  font-size:10px;
+  height:20px;
+  justify-content:center;
+  width:20px;
+}
+.aya-pos-pro .pos-flow-progress span{
+  font-size:10px;
+  font-weight:900;
+}
+
+/* --- Tahap 1: keranjang + tombol ringkas --- */
+.aya-pos-pro .pos-stage-one{
+  display:flex;
+  flex:1 1 auto;
+  flex-direction:column;
+  min-height:0;
+}
+.aya-pos-pro .pos-stage-actions{
+  align-items:stretch;
+  background:#111419;
+  border:1px solid #343a43;
+  border-radius:14px;
+  display:grid;
+  flex:0 0 auto;
+  gap:7px;
+  grid-template-columns:112px 112px minmax(145px,.75fr) minmax(190px,1fr);
+  margin-top:7px;
+  padding:7px;
+}
+.aya-pos-pro .pos-stage-actions button{
+  min-height:48px;
+  font-size:10px;
+  font-weight:900;
+  border-radius:10px;
+}
+.aya-pos-pro .pos-stage-total{
+  align-items:flex-end;
+  background:#24180c;
+  border:1px solid #78420d;
+  border-radius:10px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  padding:6px 10px;
+}
+.aya-pos-pro .pos-stage-total span{
+  color:#ffb05b;
+  font-size:8px;
+  font-weight:900;
+  letter-spacing:.05em;
+}
+.aya-pos-pro .pos-stage-total strong{
+  color:#ff9220;
+  font-size:18px;
+  line-height:1.1;
+}
+.aya-pos-pro #openPaymentButton{
+  background:#f57c00;
+  border-color:#ffad42;
+  color:#111;
+  font-size:11px;
+}
+.aya-pos-pro #openPaymentButton:disabled{
+  filter:grayscale(.7);
+  opacity:.45;
+  cursor:not-allowed;
+}
+
+/* Tahap pertama sekarang punya ruang lebih banyak karena pembayaran dipindah ke dialog. */
+.aya-pos-pro .pos-pro-receipt{
+  display:flex;
+  flex-direction:column;
+}
+.aya-pos-pro .pos-pro-cart-list{
+  flex:1 1 auto;
+  max-height:none;
+  min-height:150px;
+  overflow-y:auto;
+}
+
+/* --- Tablet: menu lebih besar dan mudah dibaca --- */
+.aya-pos-pro[data-pos-mode="tablet"] .pos-pro-product-card{
+  grid-template-columns:88px minmax(190px,1.2fr) minmax(150px,.78fr) 105px!important;
+  min-height:56px!important;
+  padding:8px 10px!important;
+  gap:9px!important;
+}
+.aya-pos-pro[data-pos-mode="tablet"] .pos-pro-product-category{
+  font-size:9px!important;
+  padding:6px 7px!important;
+}
+.aya-pos-pro[data-pos-mode="tablet"] .pos-pro-product-card strong{
+  font-size:14px!important;
+  line-height:1.25!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
+  white-space:normal!important;
+}
+.aya-pos-pro[data-pos-mode="tablet"] .pos-pro-product-meta{
+  align-items:flex-start;
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+  font-size:10px!important;
+  line-height:1.25!important;
+  overflow:visible!important;
+  white-space:normal!important;
+}
+.aya-pos-pro[data-pos-mode="tablet"] .pos-stock-badge{
+  background:#222831;
+  border:1px solid #464d58;
+  border-radius:999px;
+  color:#dfe3e8;
+  display:inline-flex;
+  font-size:9px;
+  font-weight:900;
+  padding:3px 7px;
+}
+.aya-pos-pro[data-pos-mode="tablet"] .pos-pro-product-card>b{
+  font-size:14px!important;
+}
+.aya-pos-pro[data-pos-mode="tablet"] .pos-menu-search-action{
+  background:#f57c00;
+  border-color:#ffad42;
+  color:#111;
+  font-weight:900;
+}
+.aya-pos-pro[data-pos-mode="tablet"] .pos-pro-filter-row input,
+.aya-pos-pro[data-pos-mode="tablet"] .pos-pro-filter-row select{
+  font-size:12px!important;
+  min-height:40px!important;
+}
+.aya-pos-pro[data-pos-mode="tablet"] .pos-pro-categories button{
+  font-size:10px!important;
+  min-height:34px!important;
+}
+
+/* --- Barcode: tahap 1 fokus pada scan + barang yang sudah terbaca --- */
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-layout{
+  grid-template-columns:minmax(300px,.48fr) minmax(620px,1.52fr)!important;
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-receipt{
+  padding-bottom:8px!important;
+  overflow:hidden!important;
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-stage-one{
+  min-height:0;
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-cart-list{
+  min-height:200px!important;
+  overflow-y:auto!important;
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-stage-actions{
+  grid-template-columns:100px 100px minmax(140px,.8fr) minmax(180px,1.15fr);
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-footer-actions{
+  position:static!important;
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-item-actions .pos-pro-button{
+  font-size:9px!important;
+  min-height:32px!important;
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-cart-copy strong{
+  font-size:13px!important;
+}
+.aya-pos-pro[data-pos-mode="barcode"] .pos-pro-cart-copy small{
+  font-size:10px!important;
+}
+
+/* --- Dialog Langkah 2 --- */
+.aya-pos-pro .pos-payment-dialog{
+  background:#101318;
+  border:1px solid #464c56;
+  border-radius:20px;
+  color:#f5f6f7;
+  height:auto;
+  max-height:92dvh;
+  max-width:1180px;
+  padding:0;
+  width:min(1180px,95vw);
+  box-shadow:0 28px 80px rgba(0,0,0,.56);
+  overflow:hidden;
+}
+.aya-pos-pro .pos-payment-dialog::backdrop{
+  background:rgba(4,6,9,.76);
+  backdrop-filter:blur(5px);
+}
+.aya-pos-pro .pos-payment-dialog-shell{
+  display:flex;
+  flex-direction:column;
+  max-height:92dvh;
+  min-height:520px;
+}
+.aya-pos-pro .pos-payment-dialog [hidden]{
+  display:none!important;
+}
+.aya-pos-pro .pos-payment-dialog-head{
+  align-items:center;
+  background:
+    linear-gradient(100deg,rgba(245,124,0,.16),transparent 42%),
+    #15191f;
+  border-bottom:1px solid #3b414a;
+  display:grid;
+  flex:0 0 auto;
+  gap:14px;
+  grid-template-columns:minmax(0,1fr) auto 38px;
+  padding:14px 16px;
+}
+.aya-pos-pro .pos-payment-dialog-head h3{
+  color:#fff;
+  font-size:20px;
+  line-height:1.2;
+  margin:2px 0 3px;
+}
+.aya-pos-pro .pos-payment-dialog-head p{
+  color:#aeb4bd;
+  font-size:10px;
+  line-height:1.35;
+  margin:0;
+}
+.aya-pos-pro .pos-flow-kicker{
+  color:#ff9d31;
+  font-size:9px;
+  font-weight:900;
+  letter-spacing:.1em;
+}
+.aya-pos-pro .pos-payment-dialog-total{
+  align-items:flex-end;
+  background:#24180c;
+  border:1px solid #8f4e0c;
+  border-radius:14px;
+  display:flex;
+  flex-direction:column;
+  min-width:175px;
+  padding:8px 12px;
+}
+.aya-pos-pro .pos-payment-dialog-total span{
+  color:#ffb05b;
+  font-size:8px;
+  font-weight:900;
+}
+.aya-pos-pro .pos-payment-dialog-total strong{
+  color:#ff9220;
+  font-size:24px;
+  line-height:1.1;
+}
+.aya-pos-pro .pos-payment-dialog-total small{
+  color:#c9cdd2;
+  font-size:9px;
+}
+.aya-pos-pro .pos-payment-close{
+  align-items:center;
+  background:#252a31;
+  border:1px solid #4c535e;
+  border-radius:10px;
+  color:#fff;
+  cursor:pointer;
+  display:flex;
+  font-size:18px;
+  height:36px;
+  justify-content:center;
+  width:36px;
+}
+.aya-pos-pro .pos-payment-dialog-body{
+  display:grid;
+  flex:1 1 auto;
+  gap:12px;
+  grid-template-columns:minmax(0,1.35fr) minmax(330px,.65fr);
+  min-height:0;
+  overflow:auto;
+  padding:12px;
+}
+.aya-pos-pro .pos-payment-left,
+.aya-pos-pro .pos-payment-right{
+  align-content:start;
+  display:grid;
+  gap:10px;
+  min-width:0;
+}
+.aya-pos-pro .pos-flow-card{
+  background:#161a20;
+  border:1px solid #383f49;
+  border-radius:14px;
+  padding:10px!important;
+}
+.aya-pos-pro .pos-flow-card-title{
+  align-items:center;
+  display:flex;
+  justify-content:space-between;
+  margin-bottom:7px;
+}
+.aya-pos-pro .pos-flow-card-title>span{
+  color:#fff;
+  font-size:10px;
+  font-weight:900;
+}
+.aya-pos-pro .pos-mini-link{
+  background:transparent;
+  border:0;
+  color:#ff9d31;
+  cursor:pointer;
+  font-size:10px;
+  font-weight:900;
+}
+.aya-pos-pro .pos-payment-review-list{
+  background:#0f1216;
+  border:1px solid #303640;
+  border-radius:10px;
+  max-height:142px;
+  overflow-y:auto;
+}
+.aya-pos-pro .pos-payment-review-row{
+  align-items:center;
+  border-bottom:1px solid #292e36;
+  display:grid;
+  gap:10px;
+  grid-template-columns:minmax(0,1fr) auto;
+  min-height:40px;
+  padding:6px 9px;
+}
+.aya-pos-pro .pos-payment-review-row:last-child{
+  border-bottom:0;
+}
+.aya-pos-pro .pos-payment-review-row strong{
+  display:block;
+  font-size:11px;
+  line-height:1.25;
+}
+.aya-pos-pro .pos-payment-review-row small{
+  color:#aeb4bd;
+  display:block;
+  font-size:9px;
+  margin-top:2px;
+}
+.aya-pos-pro .pos-payment-review-row>b{
+  color:#ff9d31;
+  font-size:11px;
+}
+.aya-pos-pro .pos-payment-review-row.is-saved{
+  background:#10231b;
+}
+.aya-pos-pro .pos-payment-review-empty{
+  color:#979da6;
+  font-size:10px;
+  padding:16px;
+  text-align:center;
+}
+
+/* Pastikan ukuran field dialog konsisten di kedua mode. */
+.aya-pos-pro .pos-payment-dialog .pos-pro-customer{
+  margin:0!important;
+}
+.aya-pos-pro .pos-payment-dialog .pos-pro-customer-title{
+  display:block!important;
+  font-size:10px!important;
+  margin-bottom:7px!important;
+}
+.aya-pos-pro .pos-payment-dialog .pos-pro-customer-grid{
+  display:grid!important;
+  gap:7px!important;
+  grid-template-columns:1fr 1fr!important;
+}
+.aya-pos-pro .pos-payment-dialog .pos-pro-customer-grid .full{
+  grid-column:1/-1!important;
+}
+.aya-pos-pro .pos-payment-dialog .pos-pro-customer-grid label,
+.aya-pos-pro .pos-payment-dialog .pos-pro-order-grid label{
+  color:#cfd3d9;
+  font-size:9px!important;
+  line-height:1.3!important;
+}
+.aya-pos-pro .pos-payment-dialog input,
+.aya-pos-pro .pos-payment-dialog select,
+.aya-pos-pro .pos-payment-dialog textarea{
+  font-size:12px!important;
+  min-height:36px!important;
+  padding:6px 8px!important;
+}
+.aya-pos-pro .pos-payment-dialog textarea{
+  min-height:42px!important;
+  resize:vertical;
+}
+.aya-pos-pro .pos-payment-dialog .pos-pro-order-grid{
+  display:grid!important;
+  gap:7px!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  margin:0!important;
+}
+.aya-pos-pro .pos-payment-dialog .pos-pro-order-grid .full{
+  grid-column:1/-1!important;
+}
+.aya-pos-pro .pos-payment-dialog .pos-pro-delivery-options{
+  grid-column:1/-1!important;
+  max-height:240px!important;
+  overflow:auto!important;
+}
+.aya-pos-pro .pos-payment-dialog .pos-pro-delivery-rate-list{
+  display:grid!important;
+}
+.aya-pos-pro .pos-payment-dialog .pos-pro-distance-buttons button{
+  min-height:44px!important;
+}
+.aya-pos-pro .pos-payment-dialog .pos-pro-distance-buttons button span,
+.aya-pos-pro .pos-payment-dialog .pos-pro-distance-buttons button b,
+.aya-pos-pro .pos-payment-dialog .pos-pro-distance-buttons button small{
+  font-size:9px!important;
+}
+
+/* Ringkasan pembayaran kanan */
+.aya-pos-pro .pos-payment-dialog .pos-pro-discount{
+  display:grid!important;
+  font-size:10px!important;
+  gap:7px!important;
+  grid-template-columns:95px 1fr!important;
+  margin:0!important;
+  padding:0!important;
+}
+.aya-pos-pro .pos-payment-dialog .pos-pro-summary{
+  display:block!important;
+  margin:8px 0 0!important;
+  padding:8px!important;
+}
+.aya-pos-pro .pos-payment-dialog .pos-pro-summary>div{
+  font-size:10px!important;
+  padding:3px 0!important;
+}
+.aya-pos-pro .pos-payment-dialog .pos-pro-summary .pos-pro-total{
+  font-size:13px!important;
+  margin-top:4px!important;
+  padding-top:6px!important;
+}
+.aya-pos-pro .pos-payment-dialog .pos-pro-summary .pos-pro-total b{
+  font-size:20px!important;
+}
+.aya-pos-pro .pos-payment-dialog .pos-pro-payment{
+  display:block!important;
+}
+.aya-pos-pro .pos-payment-dialog .pos-pro-payment-title{
+  display:block!important;
+  font-size:10px!important;
+  margin-bottom:7px!important;
+}
+.aya-pos-pro .pos-payment-dialog #paymentMethod{
+  display:none!important;
+}
+.aya-pos-pro .pos-payment-dialog .pos-pro-payment-buttons{
+  display:grid!important;
+  gap:7px!important;
+  grid-template-columns:repeat(2,1fr)!important;
+  margin:0!important;
+}
+.aya-pos-pro .pos-payment-dialog .pos-pro-payment-buttons button{
+  border-radius:12px!important;
+  font-size:10px!important;
+  min-height:52px!important;
+  padding:6px!important;
+}
+.aya-pos-pro .pos-payment-dialog .pos-pro-payment-buttons button span{
+  font-size:16px!important;
+}
+.aya-pos-pro .pos-payment-dialog .pos-pro-paid-field{
+  display:block;
+  font-size:10px!important;
+  margin:0!important;
+}
+.aya-pos-pro .pos-payment-dialog .pos-pro-paid-input input{
+  font-size:18px!important;
+  font-weight:900;
+  min-height:48px!important;
+}
+.aya-pos-pro .pos-payment-dialog .pos-pro-paid-input strong{
+  font-size:17px!important;
+}
+.aya-pos-pro .pos-payment-dialog .pos-pro-cash-shortcuts{
+  gap:5px!important;
+}
+.aya-pos-pro .pos-payment-dialog .pos-pro-cash-shortcuts button{
+  font-size:9px!important;
+  min-height:30px!important;
+  padding:4px!important;
+}
+.aya-pos-pro .pos-payment-status{
+  background:#171b21;
+  border:1px solid #3e454f;
+  border-left:4px solid #6d747f;
+  border-radius:10px;
+  color:#c3c8cf;
+  font-size:10px;
+  line-height:1.45;
+  padding:9px 10px;
+}
+.aya-pos-pro .pos-payment-status[data-state="working"]{
+  border-left-color:#ff9d31;
+  color:#ffd29d;
+}
+.aya-pos-pro .pos-payment-status[data-state="success"]{
+  background:#10231b;
+  border-color:#2f7659;
+  border-left-color:#46dfa3;
+  color:#94e8c2;
+}
+.aya-pos-pro .pos-payment-status[data-state="warning"]{
+  background:#2a2010;
+  border-color:#806027;
+  border-left-color:#ffb64c;
+  color:#ffd397;
+}
+.aya-pos-pro .pos-payment-status[data-state="error"]{
+  background:#2a1819;
+  border-color:#71373a;
+  border-left-color:#ff7379;
+  color:#ffb2b5;
+}
+
+/* Footer dialog hanya 4 tombol dan selalu tampak. */
+.aya-pos-pro .pos-payment-dialog .pos-payment-final-actions{
+  background:#111419!important;
+  border-top:1px solid #414852!important;
+  box-shadow:0 -10px 24px rgba(0,0,0,.28)!important;
+  display:grid!important;
+  flex:0 0 auto!important;
+  gap:8px!important;
+  grid-template-columns:repeat(4,1fr)!important;
+  margin:0!important;
+  min-height:66px!important;
+  padding:9px 12px!important;
+  position:sticky!important;
+  bottom:0!important;
+  left:auto!important;
+  right:auto!important;
+  z-index:50!important;
+}
+.aya-pos-pro .pos-payment-dialog .pos-payment-final-actions button{
+  border-radius:12px!important;
+  font-size:12px!important;
+  font-weight:900!important;
+  min-height:46px!important;
+  padding:7px 8px!important;
+  white-space:normal!important;
+}
+.aya-pos-pro .pos-payment-dialog #paymentHoldButton{
+  background:#7b4b08!important;
+  border-color:#b97613!important;
+  color:#fff!important;
+}
+.aya-pos-pro .pos-payment-dialog #saveSale{
+  background:#f57c00!important;
+  border-color:#ffad42!important;
+  color:#111!important;
+}
+.aya-pos-pro .pos-payment-dialog #printSale{
+  background:#1769aa!important;
+  border-color:#3f8fd0!important;
+  color:#fff!important;
+}
+.aya-pos-pro .pos-payment-dialog #clearSale{
+  background:#3b2022!important;
+  border-color:#7d4146!important;
+  color:#fff!important;
+}
+
+/* Laptop 1366 x 768 */
+@media (max-width:1366px) and (min-width:761px){
+  .aya-pos-pro .pos-flow-progress{
+    margin-bottom:5px;
+  }
+  .aya-pos-pro .pos-flow-progress>div{
+    min-height:28px;
+    padding:3px 8px;
+  }
+  .aya-pos-pro[data-pos-mode="tablet"] .pos-pro-product-card{
+    grid-template-columns:76px minmax(160px,1.2fr) minmax(130px,.72fr) 92px!important;
+    min-height:50px!important;
+  }
+  .aya-pos-pro[data-pos-mode="tablet"] .pos-pro-product-card strong{
+    font-size:13px!important;
+  }
+  .aya-pos-pro .pos-stage-actions{
+    grid-template-columns:94px 94px minmax(128px,.72fr) minmax(165px,1fr);
+    gap:5px;
+    padding:5px;
+  }
+  .aya-pos-pro .pos-stage-actions button{
+    min-height:42px;
+    font-size:9px;
+  }
+  .aya-pos-pro .pos-stage-total strong{
+    font-size:16px;
+  }
+  .aya-pos-pro .pos-payment-dialog{
+    width:min(1080px,95vw);
+  }
+  .aya-pos-pro .pos-payment-dialog-head{
+    padding:10px 12px;
+  }
+  .aya-pos-pro .pos-payment-dialog-head h3{
+    font-size:17px;
+  }
+  .aya-pos-pro .pos-payment-dialog-body{
+    gap:9px;
+    padding:9px;
+  }
+  .aya-pos-pro .pos-flow-card{
+    padding:8px!important;
+  }
+  .aya-pos-pro .pos-payment-review-list{
+    max-height:110px;
+  }
+}
+
+/* Tablet portrait / HP: dialog tetap interaktif dan tidak tumpang tindih. */
+@media (max-width:760px){
+  .aya-pos-pro .pos-flow-progress{
+    flex-wrap:wrap;
+  }
+  .aya-pos-pro .pos-stage-actions{
+    grid-template-columns:1fr 1fr;
+  }
+  .aya-pos-pro .pos-stage-total{
+    align-items:flex-start;
+  }
+  .aya-pos-pro .pos-payment-dialog{
+    border-radius:14px;
+    max-height:96dvh;
+    width:96vw;
+  }
+  .aya-pos-pro .pos-payment-dialog-shell{
+    max-height:96dvh;
+    min-height:0;
+  }
+  .aya-pos-pro .pos-payment-dialog-head{
+    grid-template-columns:1fr auto;
+  }
+  .aya-pos-pro .pos-payment-dialog-total{
+    grid-column:1/-1;
+    align-items:flex-start;
+  }
+  .aya-pos-pro .pos-payment-close{
+    grid-column:2;
+    grid-row:1;
+  }
+  .aya-pos-pro .pos-payment-dialog-body{
+    grid-template-columns:1fr;
+  }
+  .aya-pos-pro .pos-payment-dialog .pos-pro-customer-grid,
+  .aya-pos-pro .pos-payment-dialog .pos-pro-order-grid{
+    grid-template-columns:1fr!important;
+  }
+  .aya-pos-pro .pos-payment-dialog .pos-pro-customer-grid .full,
+  .aya-pos-pro .pos-payment-dialog .pos-pro-order-grid .full{
+    grid-column:auto!important;
+  }
+  .aya-pos-pro .pos-payment-dialog .pos-payment-final-actions{
+    grid-template-columns:repeat(2,1fr)!important;
+  }
+}
