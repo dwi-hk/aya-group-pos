@@ -38,6 +38,37 @@ const sidebar = document.querySelector('#sidebar');
 const appShell = document.querySelector('#app');
 const sidebarReveal = document.querySelector('#sidebarReveal');
 
+function sidebarUsesDrawer() {
+  return (
+    innerWidth <= 760
+    || (
+      innerWidth <= 1100
+      && window.matchMedia('(orientation: portrait)').matches
+    )
+  );
+}
+
+function ensureSidebarPortraitBackdrop() {
+  let backdrop = document.querySelector('#sidebarPortraitBackdrop');
+
+  if (!backdrop) {
+    backdrop = document.createElement('button');
+    backdrop.id = 'sidebarPortraitBackdrop';
+    backdrop.type = 'button';
+    backdrop.className = 'sidebar-portrait-backdrop';
+    backdrop.setAttribute('aria-label', 'Tutup menu samping');
+    backdrop.hidden = true;
+    document.body.append(backdrop);
+
+    backdrop.addEventListener('click', () => {
+      sidebar.classList.remove('open');
+      syncSidebarLayout();
+    });
+  }
+
+  return backdrop;
+}
+
 let branches = [];
 let currentRoute = 'users';
 let navigationSequence = 0;
@@ -604,7 +635,7 @@ async function navigate(requestedRoute, options = {}) {
 
   if (
     navigationId === navigationSequence
-    && innerWidth <= 760
+    && sidebarUsesDrawer()
   ) {
     sidebar.classList.remove('open');
     syncSidebarLayout();
@@ -689,13 +720,25 @@ function updateConnection(detail = connectionInfo()) {
 }
 
 function syncSidebarLayout() {
-  const mobile = innerWidth <= 760;
+  const drawer = sidebarUsesDrawer();
+  const backdrop = ensureSidebarPortraitBackdrop();
 
-  if (mobile) {
+  if (drawer) {
+    /* Di mode drawer, sidebar benar-benar keluar ke kiri.
+       Class collapsed milik desktop dibersihkan agar tidak menyisakan lebar 74px. */
+    sidebar.classList.remove('collapsed');
     appShell.classList.remove('sidebar-hidden');
-    sidebarReveal.hidden = sidebar.classList.contains('open');
+
+    const open = sidebar.classList.contains('open');
+    sidebarReveal.hidden = open;
+    backdrop.hidden = !open;
+    document.body.classList.toggle('sidebar-portrait-open', open);
     return;
   }
+
+  sidebar.classList.remove('open');
+  backdrop.hidden = true;
+  document.body.classList.remove('sidebar-portrait-open');
 
   const hidden = sidebar.classList.contains('collapsed');
   appShell.classList.toggle('sidebar-hidden', hidden);
@@ -754,7 +797,7 @@ branchSelector.addEventListener('change', () => {
 });
 
 document.querySelector('#sidebarToggle').onclick = () => {
-  if (innerWidth <= 760) {
+  if (sidebarUsesDrawer()) {
     sidebar.classList.toggle('open');
   } else {
     sidebar.classList.toggle('collapsed');
@@ -763,7 +806,7 @@ document.querySelector('#sidebarToggle').onclick = () => {
 };
 
 sidebarReveal.onclick = () => {
-  if (innerWidth <= 760) {
+  if (sidebarUsesDrawer()) {
     sidebar.classList.add('open');
   } else {
     sidebar.classList.remove('collapsed');
@@ -772,6 +815,9 @@ sidebarReveal.onclick = () => {
 };
 
 window.addEventListener('resize', syncSidebarLayout);
+window.addEventListener('orientationchange', () => {
+  window.setTimeout(syncSidebarLayout, 80);
+});
 syncSidebarLayout();
 
 document.querySelector('#logoutButton').onclick = async () => {

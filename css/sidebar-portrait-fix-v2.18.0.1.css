@@ -1,0 +1,122 @@
+/*
+ * AYA GROUP POS v2.18.0.1
+ * Fix sidebar untuk tablet mode portrait.
+ * Tidak mengubah database, Firebase, transaksi, atau fitur Kasir v2.18.0.
+ */
+
+@media (orientation: portrait) and (min-width: 761px) and (max-width: 1100px) {
+  :root {
+    --sidebar: 292px;
+  }
+
+  .app-shell {
+    display: block !important;
+    grid-template-columns: none !important;
+    min-height: 100vh;
+  }
+
+  .sidebar {
+    position: fixed !important;
+    inset: 0 auto 0 0 !important;
+    z-index: 80 !important;
+    width: var(--sidebar) !important;
+    min-width: var(--sidebar) !important;
+    height: 100dvh !important;
+    transform: translateX(-100%) !important;
+    opacity: 1 !important;
+    overflow: hidden !important;
+    pointer-events: auto !important;
+    border-right: 1px solid var(--line) !important;
+    box-shadow: 18px 0 48px rgba(0,0,0,.48);
+    transition: transform .25s ease !important;
+  }
+
+  .sidebar.open {
+    transform: translateX(0) !important;
+  }
+
+  /* Mode portrait memakai drawer, jadi class collapsed tidak boleh
+     mengecilkan sidebar menjadi 74px. */
+  .sidebar.collapsed {
+    width: var(--sidebar) !important;
+    min-width: var(--sidebar) !important;
+  }
+
+  .sidebar.collapsed .brand-copy,
+  .sidebar.collapsed .nav-label,
+  .sidebar.collapsed .nav-parent-label,
+  .sidebar.collapsed .sidebar-footer small,
+  .sidebar.collapsed .ghost-button {
+    display: grid !important;
+  }
+
+  .sidebar.collapsed .nav-parent-label,
+  .sidebar.collapsed .nav-label {
+    display: inline !important;
+  }
+
+  .app-shell.sidebar-hidden {
+    display: block !important;
+    grid-template-columns: none !important;
+  }
+
+  .app-shell.sidebar-hidden .sidebar {
+    width: var(--sidebar) !important;
+    min-width: var(--sidebar) !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    transform: translateX(-100%) !important;
+  }
+
+  .app-shell.sidebar-hidden .sidebar.open {
+    transform: translateX(0) !important;
+  }
+
+  .main-content,
+  .app-shell.sidebar-hidden .main-content {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+
+  /* Beri ruang untuk tombol pemuncul sidebar ketika drawer tertutup. */
+  .sidebar:not(.open) + .main-content .topbar {
+    padding-left: 48px !important;
+  }
+
+  .sidebar-reveal-button {
+    position: fixed !important;
+    left: 10px !important;
+    top: 12px !important;
+    z-index: 95 !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sidebar-reveal-button[hidden] {
+    display: none !important;
+  }
+
+  /* Overlay gelap agar perilaku terasa seperti drawer tablet modern. */
+  .sidebar-portrait-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 72;
+    background: rgba(0,0,0,.46);
+    border: 0;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+  }
+
+  .sidebar-portrait-backdrop[hidden] {
+    display: none !important;
+  }
+
+  body.sidebar-portrait-open {
+    overflow: hidden;
+  }
+}
