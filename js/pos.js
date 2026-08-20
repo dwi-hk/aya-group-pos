@@ -32,6 +32,9 @@ let held = JSON.parse(localStorage.getItem('aya.held') || '[]');
 let products = [];
 let saleSaving = false;
 let lastSavedSale = null;
+// True hanya jika transaksi pada popup pembayaran yang sedang aktif
+// sudah berhasil disimpan dan menunggu proses CETAK.
+let currentPaymentSaved = false;
 const POS_VIEW_MODE_KEY = 'aya.pos.viewMode';
 
 const saveHeld = () => localStorage.setItem('aya.held', JSON.stringify(held));
@@ -640,6 +643,7 @@ export async function renderPOS(ctx) {
     $('#printSale').disabled = true;
     $('#saveSale').disabled = false;
     $('#saveSale').textContent = '💾 SIMPAN';
+    currentPaymentSaved = false;
 
     if (!paymentDialog.open) paymentDialog.showModal();
     posRoot.classList.add('is-payment-open');
@@ -1096,6 +1100,7 @@ export async function renderPOS(ctx) {
   $('#newTransaction').onclick = () => {
     if (cart.length && !window.confirm('Mulai transaksi baru? Keranjang saat ini akan dikosongkan.')) return;
     cart = [];
+    currentPaymentSaved = false;
     resetDraft();
     renderCart();
     closePaymentFlow();
@@ -1240,6 +1245,7 @@ export async function renderPOS(ctx) {
        */
       result = await pushData(`sales/${ctx.branch.id}`, sale);
       mainSaleSaved = true;
+      currentPaymentSaved = true;
       lastSavedSale = {
         ...sale,
         items: (sale.items || []).map(item => ({ ...item }))
@@ -1392,7 +1398,18 @@ export async function renderPOS(ctx) {
       const status = $('#paymentFlowStatus');
       if (status) {
         status.dataset.state = 'success';
-        status.innerHTML = '✓ Nota sudah dikirim ke printer. Tekan <b>KOSONGKAN</b> atau tutup jendela untuk transaksi berikutnya.';
+        status.innerHTML = currentPaymentSaved
+          ? '✓ SIMPAN dan CETAK selesai. Kembali ke kasir…'
+          : '✓ Nota sudah dikirim ke printer.';
+      }
+
+      // Popup otomatis ditutup HANYA setelah transaksi pada popup ini
+      // berhasil SIMPAN lalu berhasil CETAK.
+      if (currentPaymentSaved) {
+        window.setTimeout(() => {
+          closePaymentFlow();
+          currentPaymentSaved = false;
+        }, 500);
       }
     } catch (error) {
       ctx.notify(error.message || 'Nota gagal dicetak.', 'error');
