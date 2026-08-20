@@ -1,0 +1,20 @@
+CARA PALING MUDAH
+
+1. EXTRACT ZIP ini.
+2. Copy SEMUA isi hasil extract ke FOLDER UTAMA project AYA POS.
+   Folder utama adalah folder yang ada file:
+      firebase.json
+      index.html
+      folder js
+3. Jika Windows bertanya Replace file, pilih REPLACE.
+4. Double-click:
+      1-KLIK-DEPLOY.cmd
+5. Ikuti tulisan di jendela hitam.
+6. Kalau muncul DEPLOY BERHASIL:
+   - tutup semua tab AYA POS
+   - buka lagi
+   - tekan Ctrl+F5
+   - tes SIMPAN lalu CETAK
+
+Kalau muncul ERROR, JANGAN TUTUP jendela hitam.
+Foto layarnya dan kirim ke ChatGPT.
