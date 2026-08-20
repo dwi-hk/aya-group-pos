@@ -1,4 +1,4 @@
-const CACHE = 'aya-pos-v2.18.0.1-portrait-sidebar-fix';
+const CACHE = 'aya-pos-v2.18.0.2-auto-close-save-print';
 
 const ASSETS = [
   './',
