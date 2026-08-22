@@ -39,6 +39,12 @@
           }
         }
       },
+      "invoiceCounters": {
+        "$branch": {
+          ".write": "auth != null && newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.isNumber() && newData.val() === data.val() + 1))",
+          ".validate": "newData.isNumber() && newData.val() >= 1"
+        }
+      },
       "$other": {
         ".write": "auth != null && (root.child('ayaGroupV2/users').child(auth.uid).child('role').val() === 'owner' || root.child('ayaGroupV2/users').child(auth.uid).child('role').val() === 'supervisor')"
       },

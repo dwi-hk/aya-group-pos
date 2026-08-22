@@ -1,4 +1,4 @@
-const CACHE = 'aya-pos-v2.18.0.2-auto-close-save-print';
+const CACHE = 'aya-pos-v2.19.0-sequential-invoice';
 
 const ASSETS = [
   './',
