@@ -109,16 +109,65 @@ function localDate(value, fallback = '') {
   return `${year}-${month}-${day}`;
 }
 
+function timestampOf(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  const raw = text(value);
+  if (!raw) return 0;
+
+  const numeric = Number(raw);
+  if (Number.isFinite(numeric)) return numeric;
+
+  const parsed = Date.parse(raw);
+  if (Number.isFinite(parsed)) return parsed;
+
+  const match = raw.match(
+    /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:,?\s+(\d{1,2})[.:](\d{1,2})(?:[.:](\d{1,2}))?)?$/
+  );
+
+  if (!match) return 0;
+
+  const [, day, month, year, hour = '0', minute = '0', second = '0'] = match;
+  const localTimestamp = new Date(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute),
+    Number(second)
+  ).getTime();
+
+  return Number.isFinite(localTimestamp) ? localTimestamp : 0;
+}
+
+function saleTimestamp(sale) {
+  for (const value of [sale?.createdAt, sale?.timestamp, sale?.date]) {
+    const timestamp = timestampOf(value);
+    if (timestamp) return timestamp;
+  }
+
+  return 0;
+}
+
 function saleDate(sale) {
-  return localDate(sale.createdAt, sale.date);
+  return localDate(saleTimestamp(sale), sale.date);
 }
 
 function dateTime(value) {
-  const date = new Date(value);
+  const timestamp = timestampOf(value);
+  if (!timestamp) return '-';
 
-  return Number.isFinite(date.getTime())
-    ? date.toLocaleString('id-ID')
-    : '-';
+  return new Intl.DateTimeFormat('id-ID', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23'
+  }).format(new Date(timestamp));
 }
 
 function itemQty(item) {
@@ -195,7 +244,7 @@ function normalizeReceiptSale(sale) {
     paymentMethod: sale.paymentMethod || 'TUNAI',
     orderType: sale.orderType || sale.tipePesanan || '-',
     customerName: sale.customerName || sale.pelangganNama || '',
-    createdAt: sale.createdAt || sale.timestamp || Date.now(),
+    createdAt: saleTimestamp(sale) || Date.now(),
     subtotal,
     shipping,
     styrofoamTotal,
@@ -757,10 +806,7 @@ export async function renderReports(ctx) {
 
         return haystack.includes(query);
       })
-      .sort((a, b) =>
-        number(b.createdAt || b.timestamp)
-        - number(a.createdAt || a.timestamp)
-      );
+      .sort((a, b) => saleTimestamp(b) - saleTimestamp(a));
   };
 
   const renderNotes = () => {
@@ -833,7 +879,7 @@ export async function renderReports(ctx) {
 
                   return `
                     <tr>
-                      <td>${dateTime(sale.createdAt || sale.timestamp || sale.date)}</td>
+                      <td>${dateTime(saleTimestamp(sale))}</td>
                       <td>
                         <strong>${escapeHTML(sale.invoice || sale.id || '-')}</strong>
                         <br>
