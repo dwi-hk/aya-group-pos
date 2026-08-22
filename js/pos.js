@@ -1,4 +1,10 @@
-import { pushData, atomicStock, mirrorLegacySale, stockForBranch } from './store.js';
+import {
+  pushData,
+  atomicStock,
+  mirrorLegacySale,
+  stockForBranch,
+  reserveInvoiceNumber
+} from './store.js';
 import { getCachedProducts, productBelongsToBranch } from './product-cache.js';
 import { rupiah, number, escapeHTML, uid, sum } from './utils.js';
 import { printReceipt } from './print.js';
@@ -57,21 +63,8 @@ function debounce(callback, delay = SEARCH_DELAY) {
   };
 }
 
-function invoiceNumber(branch, timestamp = Date.now()) {
-  const date = new Date(timestamp);
-  const datePart = [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, '0'),
-    String(date.getDate()).padStart(2, '0')
-  ].join('');
-  const timePart = [
-    String(date.getHours()).padStart(2, '0'),
-    String(date.getMinutes()).padStart(2, '0'),
-    String(date.getSeconds()).padStart(2, '0'),
-    String(date.getMilliseconds()).padStart(3, '0')
-  ].join('');
-
-  return `${branch.code || 'AYA'}-${datePart}-${timePart}`;
+function pendingInvoiceNumber(branch) {
+  return `${branch.code || 'AYA'}-OTOMATIS`;
 }
 
 function formatDeviceDate(timestamp = Date.now()) {
@@ -138,7 +131,7 @@ export async function renderPOS(ctx) {
   let currentPage = 1;
   let selectedCartId = '';
   let draftCreatedAt = Date.now();
-  let draftInvoice = invoiceNumber(ctx.branch, draftCreatedAt);
+  let draftInvoice = pendingInvoiceNumber(ctx.branch);
 
   ctx.host.innerHTML = `
     <div class="aya-pos-view aya-pos-pro">
@@ -771,7 +764,7 @@ export async function renderPOS(ctx) {
   const restoreDraft = record => {
     if (record.draftCreatedAt || record.at) {
       draftCreatedAt = number(record.draftCreatedAt || record.at);
-      draftInvoice = record.draftInvoice || invoiceNumber(ctx.branch, draftCreatedAt);
+      draftInvoice = pendingInvoiceNumber(ctx.branch);
     }
 
     setDraftField('orderType', record.orderType || 'Makan di tempat');
@@ -808,7 +801,7 @@ export async function renderPOS(ctx) {
 
   const resetDraft = () => {
     draftCreatedAt = Date.now();
-    draftInvoice = invoiceNumber(ctx.branch, draftCreatedAt);
+    draftInvoice = pendingInvoiceNumber(ctx.branch);
     selectedCartId = '';
     restoreDraft({
       orderType: 'Makan di tempat', paymentMethod: CASH_METHOD,
@@ -1193,12 +1186,12 @@ export async function renderPOS(ctx) {
     const saveButton = $('#saveSale');
     const originalButtonText = saveButton.textContent;
     const createdAt = Date.now();
-    const invoice = draftInvoice || invoiceNumber(ctx.branch, createdAt);
+    let invoice = '';
     const soldItems = cart.map(item => ({ ...item }));
 
     const sale = {
-      invoice,
-      clientTransactionId: invoice,
+      invoice: '',
+      clientTransactionId: '',
       branchId: ctx.branch.id,
       branchName: ctx.branch.name,
       cashierId: ctx.user.uid || 'local',
@@ -1238,6 +1231,12 @@ export async function renderPOS(ctx) {
     const warnings = [];
 
     try {
+      invoice = await reserveInvoiceNumber(ctx.branch);
+      sale.invoice = invoice;
+      sale.clientTransactionId = invoice;
+      draftInvoice = invoice;
+      updateDraftIdentity();
+
       /*
        * Penyimpanan utama dilakukan satu kali.
        * Setelah berhasil, kegagalan proses tambahan tidak boleh membuat
@@ -1356,6 +1355,9 @@ export async function renderPOS(ctx) {
         resetDraft();
         renderCart();
         renderProducts();
+      } else {
+        draftInvoice = pendingInvoiceNumber(ctx.branch);
+        updateDraftIdentity();
       }
 
       if (paymentStatus) {

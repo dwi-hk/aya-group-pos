@@ -1437,6 +1437,53 @@ export function pushData(path, value, options = {}) {
   }, options);
 }
 
+export async function reserveInvoiceNumber(branch = {}) {
+  const branchId = String(branch.id || '').trim();
+  const prefix = String(branch.code || 'AYA')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '') || 'AYA';
+
+  if (!branchId) {
+    throw new Error('Cabang aktif tidak valid. Nomor nota belum dibuat.');
+  }
+
+  if (!auth.currentUser) {
+    throw new Error('Silakan login kembali sebelum menyimpan transaksi.');
+  }
+
+  if (!navigator.onLine) {
+    throw new Error(
+      'Nomor nota berurutan membutuhkan koneksi internet. '
+      + 'Sambungkan internet lalu simpan kembali.'
+    );
+  }
+
+  let result;
+
+  try {
+    result = await runTransaction(
+      ref(db, `${ROOT}/invoiceCounters/${branchId}`),
+      current => Math.max(0, Math.floor(number(current))) + 1,
+      { applyLocally: false }
+    );
+  } catch (error) {
+    console.error('Pembuatan nomor nota berurutan gagal:', error);
+    throw new Error(
+      'Nomor nota belum dapat dibuat. Periksa koneksi dan Firebase Rules, '
+      + 'lalu coba simpan kembali.'
+    );
+  }
+
+  const sequence = Math.floor(number(result.snapshot?.val()));
+
+  if (!result.committed || sequence < 1) {
+    throw new Error('Nomor nota gagal dipesan. Silakan coba simpan kembali.');
+  }
+
+  return `${prefix}-${String(sequence).padStart(6, '0')}`;
+}
+
 async function legacyWrite(
   type,
   absolutePath,
